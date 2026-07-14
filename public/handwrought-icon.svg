@@ -1,0 +1,27 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="stitchGrad" x1="55" y1="0" x2="145" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#22252A"/>
+      <stop offset="100%" stop-color="#3B5BA9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="200" height="200" rx="28" fill="#FBFAF7"/>
+
+  <!-- Left stroke of H: hand-drawn, slightly imperfect -->
+  <path d="M 56 46
+           C 50 62, 62 76, 55 92
+           C 49 106, 61 118, 54 132
+           C 49 144, 58 150, 55 158"
+        fill="none" stroke="#22252A" stroke-width="9"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Right stroke of H: clean, precise -->
+  <line x1="146" y1="44" x2="146" y2="158"
+        stroke="#3B5BA9" stroke-width="9" stroke-linecap="round"/>
+
+  <!-- Crossbar: stitched, transitioning from hand to precise -->
+  <line x1="58" y1="101" x2="144" y2="99"
+        stroke="url(#stitchGrad)" stroke-width="7"
+        stroke-linecap="round" stroke-dasharray="10 8"/>
+</svg>
