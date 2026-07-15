@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { generateMockReply } from "@/lib/mockAssistant";
 import { parseAssistantReply } from "@/lib/suggestionParser";
+import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import type { ChatMessage, Selection } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -10,6 +10,46 @@ type RequestBody = {
   document: string;
   selection: Selection;
 };
+
+function buildContextPrompt(document: string, selection: Selection): string {
+  const selectionNote =
+    selection.end > selection.start
+      ? `The user currently has this selected (offsets ${selection.start}-${selection.end}):\n"""\n${document.slice(selection.start, selection.end)}\n"""`
+      : "The user has no active selection right now.";
+  return `${SYSTEM_PROMPT}\n\nCurrent full document:\n"""\n${document}\n"""\n\n${selectionNote}`;
+}
+
+async function callGemini(messages: ChatMessage[], document: string, selection: Selection): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not set. Add it to .env.local to use the Gemini test provider.");
+  }
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: buildContextPrompt(document, selection) }] },
+        contents: messages.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        })),
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Gemini request failed (${res.status}): ${errText}`);
+  }
+
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
+  if (!text) throw new Error("Gemini returned an empty response.");
+  return text;
+}
 
 export async function POST(req: Request) {
   let body: RequestBody;
@@ -25,31 +65,33 @@ export async function POST(req: Request) {
   }
 
   try {
-    // ---- FAKE / MOCK MODE (active) -----------------------------------
-    // Simulates network + "thinking" latency and returns a deterministic
-    // stand-in reply, wrapped in the same delimiters a real model would use.
-    await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 600));
-    const raw = generateMockReply({ messages, document, selection });
+    // ---- GEMINI 2.0 FLASH (active) -------------------------------------
+    // Free-tier real model, used to test look-and-feel before switching to
+    // a paid provider for production. Needs GEMINI_API_KEY in .env.local.
+    const raw = await callGemini(messages, document, selection);
 
-    // ---- REAL ANTHROPIC MODE (commented out) --------------------------
-    // To switch to the real API:
+    // ---- FAKE / MOCK MODE (commented out) ------------------------------
+    // Deterministic, no network, no API key — useful as an offline fallback
+    // while iterating on UI with zero cost/latency.
+    //
+    // import { generateMockReply } from "@/lib/mockAssistant";
+    // await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 600));
+    // const raw = generateMockReply({ messages, document, selection });
+    // ---------------------------------------------------------------------
+
+    // ---- REAL ANTHROPIC MODE (commented out, for production) ----------
+    // To switch to the paid production API:
     //   1. npm install @anthropic-ai/sdk
     //   2. Add ANTHROPIC_API_KEY to .env.local
-    //   3. Delete the FAKE/MOCK block above and uncomment the block below
+    //   3. Delete/comment the GEMINI block above and uncomment this block
     //
     // import Anthropic from "@anthropic-ai/sdk";
-    // import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
     // const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    //
-    // const selectionNote =
-    //   selection.end > selection.start
-    //     ? `The user currently has this selected (offsets ${selection.start}-${selection.end}):\n"""\n${document.slice(selection.start, selection.end)}\n"""`
-    //     : "The user has no active selection right now.";
     //
     // const response = await anthropic.messages.create({
     //   model: "claude-sonnet-5",
     //   max_tokens: 1024,
-    //   system: `${SYSTEM_PROMPT}\n\nCurrent full document:\n"""\n${document}\n"""\n\n${selectionNote}`,
+    //   system: buildContextPrompt(document, selection),
     //   messages: messages.map((m) => ({ role: m.role, content: m.content })),
     // });
     //
@@ -63,6 +105,7 @@ export async function POST(req: Request) {
     return NextResponse.json(parsed);
   } catch (err) {
     console.error("chat api error", err);
-    return NextResponse.json({ error: "The writing assistant is unavailable right now." }, { status: 502 });
+    const message = err instanceof Error ? err.message : "The writing assistant is unavailable right now.";
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }
