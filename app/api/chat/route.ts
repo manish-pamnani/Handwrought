@@ -26,7 +26,7 @@ async function callGemini(messages: ChatMessage[], document: string, selection: 
   }
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    // ---- GEMINI 2.0 FLASH (active) -------------------------------------
+    // ---- GEMINI FLASH LITE (latest, active) ------------------------------
     // Free-tier real model, used to test look-and-feel before switching to
     // a paid provider for production. Needs GEMINI_API_KEY in .env.local.
     const raw = await callGemini(messages, document, selection);
