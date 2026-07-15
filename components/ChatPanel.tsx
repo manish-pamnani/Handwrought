@@ -45,7 +45,7 @@ const ChatPanel = forwardRef<HTMLTextAreaElement, ChatPanelProps>(function ChatP
           </p>
         )}
 
-        {messages.map((m) => (
+        {messages?.length > 0 && messages?.map((m) => (
           <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
             <div className="max-w-[85%]">
               {m.role === "assistant" && (
