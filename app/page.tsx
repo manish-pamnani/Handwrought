@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
 import ChatPanel from "@/components/ChatPanel";
 import DocumentPanel from "@/components/DocumentPanel";
@@ -27,7 +27,6 @@ export default function Home() {
   const [pendingSuggestion, setPendingSuggestion] = useState<Suggestion | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [hydrated, setHydrated] = useState(false);
-  const chatInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Load any saved session on mount. This one-time hydration from an
   // external store (localStorage) necessarily sets state from an effect.
@@ -103,7 +102,9 @@ export default function Home() {
         setPendingSuggestion({
           messageId: assistantId,
           mode,
-          text: data.suggestion.content,
+          text: data.suggestion.options[0],
+          options: data.suggestion.options,
+          optionIndex: 0,
           rangeStart,
           rangeEnd,
           fellBackToAppend,
@@ -146,8 +147,8 @@ export default function Home() {
     setPendingSuggestion((prev) => (prev ? { ...prev, text } : prev));
   }
 
-  function handleAskAI() {
-    chatInputRef.current?.focus();
+  function handleSelectOption(index: number) {
+    setPendingSuggestion((prev) => (prev ? { ...prev, optionIndex: index, text: prev.options[index] } : prev));
   }
 
   return (
@@ -156,11 +157,12 @@ export default function Home() {
       <main className="flex flex-1 overflow-hidden">
         <div className="w-[380px] shrink-0 border-r border-[var(--color-border)]">
           <ChatPanel
-            ref={chatInputRef}
             messages={messages}
             isThinking={isThinking}
             selection={selection}
             onSend={handleSend}
+            pendingSuggestion={pendingSuggestion}
+            onSelectOption={handleSelectOption}
           />
         </div>
         <div className="flex-1">
@@ -173,7 +175,8 @@ export default function Home() {
             onEditSuggestionText={handleEditSuggestionText}
             onAccept={handleAccept}
             onReject={handleReject}
-            onAskAI={handleAskAI}
+            onQuickEdit={handleSend}
+            isThinking={isThinking}
           />
         </div>
       </main>

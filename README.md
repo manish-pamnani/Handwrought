@@ -1,4 +1,4 @@
-# Handwrought
+# HandWrought
 
 An AI writing companion: a chat panel and a distraction-free document editor,
 side by side. The assistant proposes changes to your draft as reviewable

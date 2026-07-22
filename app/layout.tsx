@@ -19,7 +19,7 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Handwrought",
+  title: "HandWrought",
   description: "An AI writing companion — written by hand, shaped by AI.",
   icons: { icon: "/handwrought-icon.svg" },
 };

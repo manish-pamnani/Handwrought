@@ -1,17 +1,19 @@
 "use client";
 
 import { forwardRef, useEffect, useRef, useState } from "react";
-import type { ChatMessage, Selection } from "@/lib/types";
+import type { ChatMessage, Selection, Suggestion } from "@/lib/types";
 
 type ChatPanelProps = {
   messages: ChatMessage[];
   isThinking: boolean;
   selection: Selection;
   onSend: (text: string) => void;
+  pendingSuggestion: Suggestion | null;
+  onSelectOption: (index: number) => void;
 };
 
 const ChatPanel = forwardRef<HTMLTextAreaElement, ChatPanelProps>(function ChatPanel(
-  { messages, isThinking, selection, onSend },
+  { messages, isThinking, selection, onSend, pendingSuggestion, onSelectOption },
   chatInputRef
 ) {
   const [input, setInput] = useState("");
@@ -64,6 +66,33 @@ const ChatPanel = forwardRef<HTMLTextAreaElement, ChatPanelProps>(function ChatP
               >
                 {m.content}
               </div>
+
+              {pendingSuggestion?.messageId === m.id && pendingSuggestion.options.length > 1 && (
+                <div className="mt-1.5 space-y-1.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-2">
+                  {pendingSuggestion.options.map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onSelectOption(i)}
+                      className={`flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left font-sans text-[13px] leading-relaxed transition-colors ${
+                        i === pendingSuggestion.optionIndex
+                          ? "border-[var(--color-accent)] bg-[var(--color-accent-tint)] text-[var(--color-ink)]"
+                          : "border-transparent text-[var(--color-ink)] hover:bg-[var(--color-paper-inset)]"
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full font-mono text-[9px] ${
+                          i === pendingSuggestion.optionIndex
+                            ? "bg-[var(--color-accent)] text-white"
+                            : "border border-[var(--color-border)] text-[var(--color-ink-muted)]"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         ))}

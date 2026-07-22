@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Selection, Suggestion } from "@/lib/types";
+import { getCaretCoordinates, getSelectionRects, type Rect } from "@/lib/textareaCaret";
+import SelectionToolbar from "./SelectionToolbar";
 
 type DocumentPanelProps = {
   documentText: string;
@@ -12,7 +14,8 @@ type DocumentPanelProps = {
   onEditSuggestionText: (text: string) => void;
   onAccept: () => void;
   onReject: () => void;
-  onAskAI: () => void;
+  onQuickEdit: (text: string) => void;
+  isThinking: boolean;
 };
 
 const MODE_LABEL: Record<Suggestion["mode"], string> = {
@@ -30,10 +33,14 @@ export default function DocumentPanel({
   onEditSuggestionText,
   onAccept,
   onReject,
-  onAskAI,
+  onQuickEdit,
+  isThinking,
 }: DocumentPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const wasPending = useRef(false);
+  const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0, containerWidth: 0 });
+  const [highlightRects, setHighlightRects] = useState<Rect[]>([]);
+  const [textareaFocused, setTextareaFocused] = useState(false);
 
   useEffect(() => {
     if (wasPending.current && !pendingSuggestion) {
@@ -47,9 +54,26 @@ export default function DocumentPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingSuggestion]);
 
+  const ICON_SIZE = 32;
+  const CARET_GAP = 10;
+
   function syncSelection(e: React.SyntheticEvent<HTMLTextAreaElement>) {
     const el = e.currentTarget;
     onChangeSelection({ start: el.selectionStart, end: el.selectionEnd });
+    if (el.selectionEnd > el.selectionStart) {
+      const caret = getCaretCoordinates(el, el.selectionEnd);
+      setToolbarPos({
+        top: caret.top - el.scrollTop,
+        left: Math.min(caret.left + CARET_GAP, el.clientWidth - ICON_SIZE),
+        containerWidth: el.clientWidth,
+      });
+      setHighlightRects(
+        getSelectionRects(el, el.selectionStart, el.selectionEnd).map((r) => ({
+          ...r,
+          top: r.top - el.scrollTop,
+        }))
+      );
+    }
   }
 
   const hasSelection = selection.end > selection.start;
@@ -63,6 +87,17 @@ export default function DocumentPanel({
       <div className="relative flex-1 overflow-y-auto px-10 pb-10 sm:px-16">
         {!pendingSuggestion ? (
           <>
+            {hasSelection && !textareaFocused && (
+              <div className="pointer-events-none absolute">
+                {highlightRects.map((r, i) => (
+                  <div
+                    key={i}
+                    className="absolute bg-[var(--color-accent-tint)]"
+                    style={{ top: r.top, left: r.left, width: r.width, height: r.height }}
+                  />
+                ))}
+              </div>
+            )}
             <textarea
               ref={textareaRef}
               value={documentText}
@@ -70,16 +105,20 @@ export default function DocumentPanel({
               onSelect={syncSelection}
               onMouseUp={syncSelection}
               onKeyUp={syncSelection}
+              onFocus={() => setTextareaFocused(true)}
+              onBlur={() => setTextareaFocused(false)}
               placeholder="Start writing, or ask the assistant for a hand…"
+              style={{ fieldSizing: "content" } as React.CSSProperties}
               className="min-h-full w-full resize-none border-none bg-transparent font-serif text-[19px] leading-[1.9] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none"
             />
             {hasSelection && (
-              <button
-                onClick={onAskAI}
-                className="absolute bottom-6 right-6 rounded-full bg-[var(--color-accent)] px-4 py-2 font-sans text-xs font-medium text-white shadow-md transition-transform hover:scale-[1.03]"
-              >
-                Ask AI about this
-              </button>
+              <SelectionToolbar
+                top={toolbarPos.top}
+                left={toolbarPos.left}
+                containerWidth={toolbarPos.containerWidth}
+                disabled={isThinking}
+                onAction={onQuickEdit}
+              />
             )}
           </>
         ) : (

@@ -6,6 +6,10 @@ export type Suggestion = {
   mode: SuggestionMode;
   /** current (possibly user-edited) proposed text */
   text: string;
+  /** all alternatives offered for this suggestion; length 1 in the common case */
+  options: string[];
+  /** which entry in `options` is currently selected/loaded into `text` */
+  optionIndex: number;
   /** range in the committed documentText this suggestion applies to.
    *  For append/insert this is a zero-length range (start === end). */
   rangeStart: number;
@@ -34,5 +38,5 @@ export type Selection = {
 
 export type ChatApiResponse = {
   comment: string;
-  suggestion: { mode: SuggestionMode; content: string } | null;
+  suggestion: { mode: SuggestionMode; options: string[] } | null;
 };

@@ -37,7 +37,7 @@ export default function TopBar({ documentText }: TopBarProps) {
       <div className="flex items-center gap-2.5">
         <Image src="/handwrought-icon.svg" alt="" width={26} height={26} priority />
         <span className="font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)]">
-          Handwrought
+          HandWrought
         </span>
       </div>
 
