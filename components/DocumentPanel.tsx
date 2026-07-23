@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Selection, Suggestion } from "@/lib/types";
 import { getCaretCoordinates, getSelectionRects, type Rect } from "@/lib/textareaCaret";
+// import { CONTINUE_SENTENCE_INSTRUCTION } from "@/lib/constants"; // continue-sentence feature disabled, collides with Expand
 import SelectionToolbar from "./SelectionToolbar";
 
 type DocumentPanelProps = {
@@ -14,6 +15,7 @@ type DocumentPanelProps = {
   onEditSuggestionText: (text: string) => void;
   onAccept: () => void;
   onReject: () => void;
+  onSelectOption: (index: number) => void;
   onQuickEdit: (text: string) => void;
   isThinking: boolean;
 };
@@ -33,6 +35,7 @@ export default function DocumentPanel({
   onEditSuggestionText,
   onAccept,
   onReject,
+  onSelectOption,
   onQuickEdit,
   isThinking,
 }: DocumentPanelProps) {
@@ -76,12 +79,23 @@ export default function DocumentPanel({
     }
   }
 
+  // continue-sentence feature disabled, collides with Expand
+  // function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+  //   if (e.key !== "Enter" || !(e.metaKey || e.ctrlKey)) return;
+  //   e.preventDefault();
+  //   if (isThinking) return;
+  //   const el = e.currentTarget;
+  //   if (el.selectionStart !== el.selectionEnd) return;
+  //   onQuickEdit(CONTINUE_SENTENCE_INSTRUCTION);
+  // }
+
   const hasSelection = selection.end > selection.start;
 
   return (
     <div className="flex h-full flex-col bg-[var(--color-paper)]">
-      <div className="px-10 pt-6 sm:px-16">
+      <div className="flex items-center justify-between px-10 pt-6 sm:px-16">
         <span className="font-mono text-[11px] tracking-widest text-[var(--color-ink-muted)]">DRAFT.MD</span>
+        {/* continue-sentence feature disabled, collides with Expand */}
       </div>
 
       <div className="relative flex-1 overflow-y-auto px-10 pb-10 sm:px-16">
@@ -138,6 +152,23 @@ export default function DocumentPanel({
                 rows={Math.max(2, pendingSuggestion.text.split("\n").length)}
                 autoFocus
               />
+              {pendingSuggestion.options.length > 1 && (
+                <span className="mt-2 flex gap-1.5">
+                  {pendingSuggestion.options.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => onSelectOption(i)}
+                      className={`flex h-6 w-6 items-center justify-center rounded-full font-mono text-[11px] transition-colors ${
+                        i === pendingSuggestion.optionIndex
+                          ? "bg-[var(--color-accent)] text-white"
+                          : "border border-[var(--color-accent-tint-border)] text-[var(--color-accent)] hover:bg-[var(--color-paper)]"
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
+                </span>
+              )}
               <span className="mt-2 flex gap-2">
                 <button
                   onClick={onAccept}

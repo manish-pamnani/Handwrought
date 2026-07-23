@@ -11,11 +11,23 @@ type RequestBody = {
   selection: Selection;
 };
 
+const CURSOR_CONTEXT_CHARS = 200;
+
 function buildContextPrompt(document: string, selection: Selection): string {
-  const selectionNote =
-    selection.end > selection.start
-      ? `The user currently has this selected (offsets ${selection.start}-${selection.end}):\n"""\n${document.slice(selection.start, selection.end)}\n"""`
-      : "The user has no active selection right now.";
+  let selectionNote: string;
+  if (selection.end > selection.start) {
+    selectionNote = `The user currently has this selected (offsets ${selection.start}-${selection.end}):\n"""\n${document.slice(selection.start, selection.end)}\n"""`;
+  } else {
+    const before = document.slice(0, selection.end).slice(-CURSOR_CONTEXT_CHARS);
+    const after = document.slice(selection.end, selection.end + CURSOR_CONTEXT_CHARS);
+    selectionNote =
+      `The user has no active selection; their cursor sits at offset ${selection.end} with nothing selected.\n` +
+      `Text immediately before the cursor: "${before}"\n` +
+      (after
+        ? `Text immediately after the cursor: "${after}"`
+        : "There is nothing after the cursor — it's at the end of the document.") +
+      `\nWhen using INSERT_AT_CURSOR, continue naturally from the text immediately before the cursor (e.g. finish an incomplete sentence or thought) and flow into whatever comes after it, if anything.`;
+  }
   return `${SYSTEM_PROMPT}\n\nCurrent full document:\n"""\n${document}\n"""\n\n${selectionNote}`;
 }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TopBar from "@/components/TopBar";
-import ChatPanel from "@/components/ChatPanel";
+import GeneratorPanel from "@/components/GeneratorPanel";
 import DocumentPanel from "@/components/DocumentPanel";
 import type { ChatApiResponse, ChatMessage, Selection, Suggestion, SuggestionMode } from "@/lib/types";
 
@@ -156,14 +156,7 @@ export default function Home() {
       <TopBar documentText={documentText} />
       <main className="flex flex-1 overflow-hidden">
         <div className="w-[380px] shrink-0 border-r border-[var(--color-border)]">
-          <ChatPanel
-            messages={messages}
-            isThinking={isThinking}
-            selection={selection}
-            onSend={handleSend}
-            pendingSuggestion={pendingSuggestion}
-            onSelectOption={handleSelectOption}
-          />
+          <GeneratorPanel onGenerate={handleSend} isThinking={isThinking} />
         </div>
         <div className="flex-1">
           <DocumentPanel
@@ -175,6 +168,7 @@ export default function Home() {
             onEditSuggestionText={handleEditSuggestionText}
             onAccept={handleAccept}
             onReject={handleReject}
+            onSelectOption={handleSelectOption}
             onQuickEdit={handleSend}
             isThinking={isThinking}
           />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { TONES } from "@/lib/constants";
 
 type SelectionToolbarProps = {
   top: number;
@@ -14,9 +15,12 @@ const ICON_SIZE = 32;
 const POPUP_WIDTH = 256; // matches w-64
 const EDGE_MARGIN = 8;
 
-const TONES = ["Professional", "Casual", "Persuasive", "Friendly", "Confident", "Formal"];
-
 const QUICK_ACTIONS = [
+  {
+    label: "Find Synonyms",
+    instruction:
+      "Suggest up to 3 synonyms for the selected word or phrase that fit naturally in this context, keeping the same part of speech and meaning. Offer each as a separate alternative replacement.",
+  },
   { label: "Improve/Rephrase", instruction: "Improve and rephrase the selected text, keeping the same meaning." },
   { label: "Shorten", instruction: "Make the selected text more concise without losing the key meaning." },
   { label: "Expand", instruction: "Expand the selected text with more detail." },
