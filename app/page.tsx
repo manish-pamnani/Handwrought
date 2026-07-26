@@ -27,6 +27,7 @@ export default function Home() {
   const [pendingSuggestion, setPendingSuggestion] = useState<Suggestion | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   // Load any saved session on mount. This one-time hydration from an
   // external store (localStorage) necessarily sets state from an effect.
@@ -154,11 +155,20 @@ export default function Home() {
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <TopBar documentText={documentText} />
-      <main className="flex flex-1 overflow-hidden">
-        <div className="w-[380px] shrink-0 border-r border-[var(--color-border)]">
-          <GeneratorPanel onGenerate={handleSend} isThinking={isThinking} />
+      <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
+        <div className="flex shrink-0 flex-col border-b border-[var(--color-border)] md:h-full md:w-[380px] md:border-b-0 md:border-r">
+          <button
+            onClick={() => setOptionsOpen((o) => !o)}
+            className="flex items-center justify-between px-4 py-3 font-sans text-sm font-medium text-[var(--color-ink)] md:hidden"
+          >
+            Generation options
+            <span className={`text-[var(--color-ink-muted)] transition-transform ${optionsOpen ? "rotate-180" : ""}`}>⌄</span>
+          </button>
+          <div className={`${optionsOpen ? "flex h-[55vh]" : "hidden"} flex-col md:flex md:h-full`}>
+            <GeneratorPanel onGenerate={handleSend} isThinking={isThinking} />
+          </div>
         </div>
-        <div className="flex-1">
+        <div className="min-h-0 flex-1">
           <DocumentPanel
             documentText={documentText}
             onChangeDocument={setDocumentText}

@@ -5,6 +5,7 @@ import type { Selection, Suggestion } from "@/lib/types";
 import { getCaretCoordinates, getSelectionRects, type Rect } from "@/lib/textareaCaret";
 // import { CONTINUE_SENTENCE_INSTRUCTION } from "@/lib/constants"; // continue-sentence feature disabled, collides with Expand
 import SelectionToolbar from "./SelectionToolbar";
+import FormattingToolbar from "./FormattingToolbar";
 
 type DocumentPanelProps = {
   documentText: string;
@@ -60,8 +61,7 @@ export default function DocumentPanel({
   const ICON_SIZE = 32;
   const CARET_GAP = 10;
 
-  function syncSelection(e: React.SyntheticEvent<HTMLTextAreaElement>) {
-    const el = e.currentTarget;
+  function syncSelectionFromElement(el: HTMLTextAreaElement) {
     onChangeSelection({ start: el.selectionStart, end: el.selectionEnd });
     if (el.selectionEnd > el.selectionStart) {
       const caret = getCaretCoordinates(el, el.selectionEnd);
@@ -76,7 +76,18 @@ export default function DocumentPanel({
           top: r.top - el.scrollTop,
         }))
       );
+    } else {
+      setHighlightRects([]);
     }
+  }
+
+  function syncSelection(e: React.SyntheticEvent<HTMLTextAreaElement>) {
+    syncSelectionFromElement(e.currentTarget);
+  }
+
+  function handleFormatted() {
+    const el = textareaRef.current;
+    if (el) syncSelectionFromElement(el);
   }
 
   // continue-sentence feature disabled, collides with Expand
@@ -97,6 +108,12 @@ export default function DocumentPanel({
         <span className="font-mono text-[11px] tracking-widest text-[var(--color-ink-muted)]">DRAFT.MD</span>
         {/* continue-sentence feature disabled, collides with Expand */}
       </div>
+
+      {!pendingSuggestion && (
+        <div className="border-b border-[var(--color-border)] px-10 sm:px-16">
+          <FormattingToolbar textareaRef={textareaRef} onFormatted={handleFormatted} />
+        </div>
+      )}
 
       <div className="relative flex-1 overflow-y-auto px-10 pb-10 sm:px-16">
         {!pendingSuggestion ? (
