@@ -37,3 +37,117 @@ body {
   color: var(--color-ink);
   font-family: var(--font-sans);
 }
+
+.prose-doc .ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+
+.prose-doc p {
+  margin: 0 0 1em;
+}
+
+.prose-doc h1,
+.prose-doc h2,
+.prose-doc h3 {
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1.2em 0 0.5em;
+}
+
+.prose-doc h1 {
+  font-size: 1.6em;
+}
+
+.prose-doc h2 {
+  font-size: 1.35em;
+}
+
+.prose-doc h3 {
+  font-size: 1.15em;
+}
+
+.prose-doc ul,
+.prose-doc ol {
+  margin: 0 0 1em;
+  padding-left: 1.5em;
+}
+
+.prose-doc ul {
+  list-style: disc;
+}
+
+.prose-doc ol {
+  list-style: decimal;
+}
+
+.prose-doc li {
+  margin: 0.25em 0;
+}
+
+.prose-doc blockquote {
+  margin: 0 0 1em;
+  padding-left: 1em;
+  border-left: 3px solid var(--color-border);
+  color: var(--color-ink-muted);
+}
+
+.prose-doc a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.prose-doc mark {
+  background: var(--color-accent-tint);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 0.1em;
+}
+
+.prose-doc img {
+  max-width: 100%;
+  border-radius: 6px;
+}
+
+.prose-doc table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0 0 1em;
+}
+
+.prose-doc th,
+.prose-doc td {
+  border: 1px solid var(--color-border);
+  padding: 0.4em 0.6em;
+  vertical-align: top;
+  position: relative;
+}
+
+.prose-doc th {
+  background: var(--color-paper-inset);
+  font-weight: 600;
+  text-align: left;
+}
+
+.prose-doc .selectedCell {
+  background: var(--color-accent-tint);
+}
+
+.prose-doc .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-accent);
+  pointer-events: none;
+}
+
+.prose-doc p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-ink-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import TopBar from "@/components/TopBar";
 import GeneratorPanel from "@/components/GeneratorPanel";
-import DocumentPanel from "@/components/DocumentPanel";
-import type { ChatApiResponse, ChatMessage, Selection, Suggestion, SuggestionMode } from "@/lib/types";
+import DocumentPanel, { type DocumentPanelHandle } from "@/components/DocumentPanel";
+import type { ChatApiResponse, ChatMessage, Suggestion, SuggestionMode } from "@/lib/types";
 
 const STORAGE_KEY = "handwrought:v1";
+const CURSOR_CONTEXT_CHARS = 200;
 
 const FALLBACK_COMMENT: Record<SuggestionMode, string> = {
   append: "Proposed an addition →",
@@ -23,11 +24,11 @@ function makeId(): string {
 export default function Home() {
   const [documentText, setDocumentText] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [selection, setSelection] = useState<Selection>({ start: 0, end: 0 });
   const [pendingSuggestion, setPendingSuggestion] = useState<Suggestion | null>(null);
   const [isThinking, setIsThinking] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const documentPanelRef = useRef<DocumentPanelHandle>(null);
 
   // Load any saved session on mount. This one-time hydration from an
   // external store (localStorage) necessarily sets state from an effect.
@@ -63,32 +64,54 @@ export default function Home() {
     setMessages(nextMessages);
     setIsThinking(true);
 
+    const editor = documentPanelRef.current?.getEditor() ?? null;
+    let selectedText: string | null = null;
+    let cursorContextBefore = "";
+    let cursorContextAfter = "";
+    if (editor) {
+      const { from, to } = editor.state.selection;
+      const docSize = editor.state.doc.content.size;
+      if (to > from) {
+        selectedText = editor.state.doc.textBetween(from, to, "\n");
+      } else {
+        cursorContextBefore = editor.state.doc.textBetween(Math.max(0, from - CURSOR_CONTEXT_CHARS), from, "\n");
+        cursorContextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + CURSOR_CONTEXT_CHARS), "\n");
+      }
+    }
+
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: nextMessages, document: documentText, selection }),
+        body: JSON.stringify({
+          messages: nextMessages,
+          document: documentText,
+          selectedText,
+          cursorContextBefore,
+          cursorContextAfter,
+        }),
       });
       if (!res.ok) throw new Error("request failed");
       const data: ChatApiResponse = await res.json();
 
       if (data.suggestion) {
         const mode = data.suggestion.mode;
+        const docSize = editor?.state.doc.content.size ?? 0;
         let rangeStart: number;
         let rangeEnd: number;
         let fellBackToAppend = false;
 
         if (mode === "append") {
-          rangeStart = rangeEnd = documentText.length;
+          rangeStart = rangeEnd = docSize;
         } else if (mode === "insert_at_cursor") {
-          rangeStart = rangeEnd = selection.end;
+          rangeStart = rangeEnd = editor?.state.selection.to ?? docSize;
         } else {
-          const hasSelection = selection.end > selection.start;
-          if (hasSelection) {
-            rangeStart = selection.start;
-            rangeEnd = selection.end;
+          const sel = editor?.state.selection;
+          if (sel && sel.to > sel.from) {
+            rangeStart = sel.from;
+            rangeEnd = sel.to;
           } else {
-            rangeStart = rangeEnd = documentText.length;
+            rangeStart = rangeEnd = docSize;
             fellBackToAppend = true;
           }
         }
@@ -129,14 +152,8 @@ export default function Home() {
   }
 
   function handleAccept() {
-    if (!pendingSuggestion) return;
-    const newText =
-      documentText.slice(0, pendingSuggestion.rangeStart) +
-      pendingSuggestion.text +
-      documentText.slice(pendingSuggestion.rangeEnd);
-    const cursor = pendingSuggestion.rangeStart + pendingSuggestion.text.length;
-    setDocumentText(newText);
-    setSelection({ start: cursor, end: cursor });
+    // The actual document mutation already happened in DocumentPanel (it
+    // owns the live editor); this just clears the pending-suggestion state.
     setPendingSuggestion(null);
   }
 
@@ -154,7 +171,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <TopBar documentText={documentText} />
+      <TopBar documentText={documentText} documentPanelRef={documentPanelRef} />
       <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
         <div className="flex shrink-0 flex-col border-b border-[var(--color-border)] md:h-full md:w-[380px] md:border-b-0 md:border-r">
           <button
@@ -170,10 +187,9 @@ export default function Home() {
         </div>
         <div className="min-h-0 flex-1">
           <DocumentPanel
+            ref={documentPanelRef}
             documentText={documentText}
             onChangeDocument={setDocumentText}
-            selection={selection}
-            onChangeSelection={setSelection}
             pendingSuggestion={pendingSuggestion}
             onEditSuggestionText={handleEditSuggestionText}
             onAccept={handleAccept}

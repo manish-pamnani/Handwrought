@@ -1,37 +1,48 @@
 import { NextResponse } from "next/server";
 import { parseAssistantReply } from "@/lib/suggestionParser";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
-import type { ChatMessage, Selection } from "@/lib/types";
+import type { ChatMessage } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 type RequestBody = {
   messages: ChatMessage[];
   document: string;
-  selection: Selection;
+  /** selected text, resolved client-side from the live editor; null if there's no selection */
+  selectedText: string | null;
+  /** plain text immediately before/after the cursor, resolved client-side (only meaningful when selectedText is null) */
+  cursorContextBefore: string;
+  cursorContextAfter: string;
 };
 
-const CURSOR_CONTEXT_CHARS = 200;
-
-function buildContextPrompt(document: string, selection: Selection): string {
+function buildContextPrompt(
+  document: string,
+  selectedText: string | null,
+  cursorContextBefore: string,
+  cursorContextAfter: string
+): string {
   let selectionNote: string;
-  if (selection.end > selection.start) {
-    selectionNote = `The user currently has this selected (offsets ${selection.start}-${selection.end}):\n"""\n${document.slice(selection.start, selection.end)}\n"""`;
+  if (selectedText !== null) {
+    selectionNote = `The user currently has this selected:\n"""\n${selectedText}\n"""`;
   } else {
-    const before = document.slice(0, selection.end).slice(-CURSOR_CONTEXT_CHARS);
-    const after = document.slice(selection.end, selection.end + CURSOR_CONTEXT_CHARS);
     selectionNote =
-      `The user has no active selection; their cursor sits at offset ${selection.end} with nothing selected.\n` +
-      `Text immediately before the cursor: "${before}"\n` +
-      (after
-        ? `Text immediately after the cursor: "${after}"`
+      `The user has no active selection.\n` +
+      `Text immediately before the cursor: "${cursorContextBefore}"\n` +
+      (cursorContextAfter
+        ? `Text immediately after the cursor: "${cursorContextAfter}"`
         : "There is nothing after the cursor — it's at the end of the document.") +
       `\nWhen using INSERT_AT_CURSOR, continue naturally from the text immediately before the cursor (e.g. finish an incomplete sentence or thought) and flow into whatever comes after it, if anything.`;
   }
   return `${SYSTEM_PROMPT}\n\nCurrent full document:\n"""\n${document}\n"""\n\n${selectionNote}`;
 }
 
-async function callGemini(messages: ChatMessage[], document: string, selection: Selection): Promise<string> {
+async function callGemini(
+  messages: ChatMessage[],
+  document: string,
+  selectedText: string | null,
+  cursorContextBefore: string,
+  cursorContextAfter: string
+): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error("GEMINI_API_KEY is not set. Add it to .env.local to use the Gemini test provider.");
@@ -43,7 +54,9 @@ async function callGemini(messages: ChatMessage[], document: string, selection: 
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        system_instruction: { parts: [{ text: buildContextPrompt(document, selection) }] },
+        system_instruction: {
+          parts: [{ text: buildContextPrompt(document, selectedText, cursorContextBefore, cursorContextAfter) }],
+        },
         contents: messages.map((m) => ({
           role: m.role === "assistant" ? "model" : "user",
           parts: [{ text: m.content }],
@@ -71,16 +84,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Malformed request body." }, { status: 400 });
   }
 
-  const { messages, document, selection } = body;
-  if (!Array.isArray(messages) || typeof document !== "string" || !selection) {
-    return NextResponse.json({ error: "Missing messages, document, or selection." }, { status: 400 });
+  const { messages, document, selectedText, cursorContextBefore, cursorContextAfter } = body;
+  if (!Array.isArray(messages) || typeof document !== "string") {
+    return NextResponse.json({ error: "Missing messages or document." }, { status: 400 });
   }
 
   try {
     // ---- GEMINI FLASH LITE (latest, active) ------------------------------
     // Free-tier real model, used to test look-and-feel before switching to
     // a paid provider for production. Needs GEMINI_API_KEY in .env.local.
-    const raw = await callGemini(messages, document, selection);
+    const raw = await callGemini(
+      messages,
+      document,
+      selectedText ?? null,
+      cursorContextBefore ?? "",
+      cursorContextAfter ?? ""
+    );
 
     // ---- FAKE / MOCK MODE (commented out) ------------------------------
     // Deterministic, no network, no API key — useful as an offline fallback

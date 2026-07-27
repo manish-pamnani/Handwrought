@@ -1,20 +1,32 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { countWords } from "@/lib/wordCount";
+import type { DocumentPanelHandle } from "./DocumentPanel";
 
 type TopBarProps = {
   documentText: string;
+  documentPanelRef: RefObject<DocumentPanelHandle | null>;
 };
 
-export default function TopBar({ documentText }: TopBarProps) {
+export default function TopBar({ documentText, documentPanelRef }: TopBarProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const wordCount = countWords(documentText);
 
   async function handleCopy() {
     try {
-      await navigator.clipboard.writeText(documentText);
+      const editor = documentPanelRef.current?.getEditor();
+      if (editor && typeof ClipboardItem !== "undefined") {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([editor.getHTML()], { type: "text/html" }),
+            "text/plain": new Blob([documentText], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(documentText);
+      }
       setCopyState("copied");
       setTimeout(() => setCopyState("idle"), 1500);
     } catch {

@@ -10,8 +10,9 @@ export type Suggestion = {
   options: string[];
   /** which entry in `options` is currently selected/loaded into `text` */
   optionIndex: number;
-  /** range in the committed documentText this suggestion applies to.
-   *  For append/insert this is a zero-length range (start === end). */
+  /** range (as ProseMirror document positions in the live editor) this
+   *  suggestion applies to. For append/insert this is a zero-length range
+   *  (start === end). */
   rangeStart: number;
   rangeEnd: number;
   /** true when a replace_selection request had to fall back to append
