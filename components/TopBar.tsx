@@ -8,9 +8,12 @@ import type { DocumentPanelHandle } from "./DocumentPanel";
 type TopBarProps = {
   documentText: string;
   documentPanelRef: RefObject<DocumentPanelHandle | null>;
+  userEmail: string;
+  onSignOut: () => void;
+  onOpenSettings: () => void;
 };
 
-export default function TopBar({ documentText, documentPanelRef }: TopBarProps) {
+export default function TopBar({ documentText, documentPanelRef, userEmail, onSignOut, onOpenSettings }: TopBarProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const wordCount = countWords(documentText);
 
@@ -68,6 +71,22 @@ export default function TopBar({ documentText, documentPanelRef }: TopBarProps) 
           className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
         >
           Export
+        </button>
+        <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
+        <span className="max-w-[160px] truncate font-mono text-xs text-[var(--color-ink-muted)]" title={userEmail}>
+          {userEmail}
+        </span>
+        <button
+          onClick={onOpenSettings}
+          className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+        >
+          Settings
+        </button>
+        <button
+          onClick={onSignOut}
+          className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+        >
+          Sign out
         </button>
       </div>
     </header>

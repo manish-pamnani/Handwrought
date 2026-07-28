@@ -6,6 +6,8 @@ import { LANGUAGES, TONES } from "@/lib/constants";
 type GeneratorPanelProps = {
   onGenerate: (instruction: string) => void;
   isThinking: boolean;
+  hasApiKey: boolean;
+  onOpenSettings: () => void;
 };
 
 const TOPIC_MAX = 300;
@@ -21,13 +23,13 @@ function buildInstruction(language: string, tone: string, topic: string, keyword
   return lines.join(" ");
 }
 
-export default function GeneratorPanel({ onGenerate, isThinking }: GeneratorPanelProps) {
+export default function GeneratorPanel({ onGenerate, isThinking, hasApiKey, onOpenSettings }: GeneratorPanelProps) {
   const [language, setLanguage] = useState(LANGUAGES[0]);
   const [tone, setTone] = useState(TONES[0]);
   const [topic, setTopic] = useState("");
   const [keywords, setKeywords] = useState("");
 
-  const canGenerate = topic.trim().length > 0 && !isThinking;
+  const canGenerate = topic.trim().length > 0 && !isThinking && hasApiKey;
 
   function handleGenerate() {
     if (!canGenerate) return;
@@ -98,7 +100,16 @@ export default function GeneratorPanel({ onGenerate, isThinking }: GeneratorPane
         </span>
       </label>
 
-      <div className="mt-auto pt-2">
+      <div className="mt-auto flex flex-col gap-2 pt-2">
+        {!hasApiKey && (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="text-left font-sans text-xs text-[var(--color-accent)] underline"
+          >
+            Add your Gemini API key in Settings to generate text.
+          </button>
+        )}
         <button
           onClick={handleGenerate}
           disabled={!canGenerate}

@@ -1,205 +1,159 @@
-"use client";
+import Image from "next/image";
+import Link from "next/link";
+import { LANGUAGES, TONES } from "@/lib/constants";
 
-import { useEffect, useRef, useState } from "react";
-import TopBar from "@/components/TopBar";
-import GeneratorPanel from "@/components/GeneratorPanel";
-import DocumentPanel, { type DocumentPanelHandle } from "@/components/DocumentPanel";
-import type { ChatApiResponse, ChatMessage, Suggestion, SuggestionMode } from "@/lib/types";
+const FEATURES = [
+  {
+    title: "Inline suggestions",
+    description:
+      "Ask for a rewrite, an expansion, or a new paragraph. Suggestions land right where your cursor is, with multiple options to choose from.",
+  },
+  {
+    title: "Your own API key",
+    description:
+      "HandWrought runs on your Gemini API key. Your drafts and prompts go straight from your browser to Google — never stored on our servers.",
+  },
+  {
+    title: "Tone & language control",
+    description: `Generate in ${LANGUAGES.length} languages and ${TONES.length} tones — from Formal to Casual — without leaving the page.`,
+  },
+  {
+    title: "Real formatting toolbar",
+    description: "Headings, lists, tables, highlights, and images — a proper document, not a plain textbox.",
+  },
+];
 
-const STORAGE_KEY = "handwrought:v1";
-const CURSOR_CONTEXT_CHARS = 200;
+const STEPS = [
+  { title: "Add your API key", description: "Bring your own free Gemini API key in Settings. Takes under a minute." },
+  { title: "Write", description: "Draft in a distraction-free editor built for long-form writing." },
+  { title: "Ask for a hand", description: "Select text or place your cursor, describe what you need, and review AI suggestions inline." },
+  { title: "Accept & export", description: "Keep what works, discard what doesn't, and export your draft as Markdown." },
+];
 
-const FALLBACK_COMMENT: Record<SuggestionMode, string> = {
-  append: "Proposed an addition →",
-  insert_at_cursor: "Proposed an insertion →",
-  replace_selection: "Proposed a replacement for your selection →",
-};
-
-function makeId(): string {
-  return typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-export default function Home() {
-  const [documentText, setDocumentText] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [pendingSuggestion, setPendingSuggestion] = useState<Suggestion | null>(null);
-  const [isThinking, setIsThinking] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const [optionsOpen, setOptionsOpen] = useState(false);
-  const documentPanelRef = useRef<DocumentPanelHandle>(null);
-
-  // Load any saved session on mount. This one-time hydration from an
-  // external store (localStorage) necessarily sets state from an effect.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw) as { documentText?: string; messages?: ChatMessage[] };
-        if (typeof saved.documentText === "string") setDocumentText(saved.documentText);
-        if (Array.isArray(saved.messages)) setMessages(saved.messages);
-      }
-    } catch {
-      // corrupted/blocked storage — start fresh
-    }
-    setHydrated(true);
-  }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  // Persist document + chat history for the session.
-  useEffect(() => {
-    if (!hydrated) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ documentText, messages }));
-    } catch {
-      // storage full/unavailable — non-fatal
-    }
-  }, [documentText, messages, hydrated]);
-
-  async function handleSend(text: string) {
-    const userMessage: ChatMessage = { id: makeId(), role: "user", content: text };
-    const nextMessages = [...messages, userMessage];
-    setMessages(nextMessages);
-    setIsThinking(true);
-
-    const editor = documentPanelRef.current?.getEditor() ?? null;
-    let selectedText: string | null = null;
-    let cursorContextBefore = "";
-    let cursorContextAfter = "";
-    if (editor) {
-      const { from, to } = editor.state.selection;
-      const docSize = editor.state.doc.content.size;
-      if (to > from) {
-        selectedText = editor.state.doc.textBetween(from, to, "\n");
-      } else {
-        cursorContextBefore = editor.state.doc.textBetween(Math.max(0, from - CURSOR_CONTEXT_CHARS), from, "\n");
-        cursorContextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + CURSOR_CONTEXT_CHARS), "\n");
-      }
-    }
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: nextMessages,
-          document: documentText,
-          selectedText,
-          cursorContextBefore,
-          cursorContextAfter,
-        }),
-      });
-      if (!res.ok) throw new Error("request failed");
-      const data: ChatApiResponse = await res.json();
-
-      if (data.suggestion) {
-        const mode = data.suggestion.mode;
-        const docSize = editor?.state.doc.content.size ?? 0;
-        let rangeStart: number;
-        let rangeEnd: number;
-        let fellBackToAppend = false;
-
-        if (mode === "append") {
-          rangeStart = rangeEnd = docSize;
-        } else if (mode === "insert_at_cursor") {
-          rangeStart = rangeEnd = editor?.state.selection.to ?? docSize;
-        } else {
-          const sel = editor?.state.selection;
-          if (sel && sel.to > sel.from) {
-            rangeStart = sel.from;
-            rangeEnd = sel.to;
-          } else {
-            rangeStart = rangeEnd = docSize;
-            fellBackToAppend = true;
-          }
-        }
-
-        const assistantId = makeId();
-        let content = data.comment || FALLBACK_COMMENT[mode];
-        if (fellBackToAppend) {
-          content += " (Nothing was selected, so I added this to the end instead.)";
-        }
-
-        setMessages((m) => [...m, { id: assistantId, role: "assistant", content, suggestionMode: mode }]);
-        setPendingSuggestion({
-          messageId: assistantId,
-          mode,
-          text: data.suggestion.options[0],
-          options: data.suggestion.options,
-          optionIndex: 0,
-          rangeStart,
-          rangeEnd,
-          fellBackToAppend,
-        });
-      } else {
-        setMessages((m) => [...m, { id: makeId(), role: "assistant", content: data.comment }]);
-      }
-    } catch {
-      setMessages((m) => [
-        ...m,
-        {
-          id: makeId(),
-          role: "assistant",
-          content: "Sorry — I couldn't reach the writing assistant. Please try again.",
-          isError: true,
-        },
-      ]);
-    } finally {
-      setIsThinking(false);
-    }
-  }
-
-  function handleAccept() {
-    // The actual document mutation already happened in DocumentPanel (it
-    // owns the live editor); this just clears the pending-suggestion state.
-    setPendingSuggestion(null);
-  }
-
-  function handleReject() {
-    setPendingSuggestion(null);
-  }
-
-  function handleEditSuggestionText(text: string) {
-    setPendingSuggestion((prev) => (prev ? { ...prev, text } : prev));
-  }
-
-  function handleSelectOption(index: number) {
-    setPendingSuggestion((prev) => (prev ? { ...prev, optionIndex: index, text: prev.options[index] } : prev));
-  }
-
+export default function LandingPage() {
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <TopBar documentText={documentText} documentPanelRef={documentPanelRef} />
-      <main className="flex flex-1 flex-col overflow-hidden md:flex-row">
-        <div className="flex shrink-0 flex-col border-b border-[var(--color-border)] md:h-full md:w-[380px] md:border-b-0 md:border-r">
-          <button
-            onClick={() => setOptionsOpen((o) => !o)}
-            className="flex items-center justify-between px-4 py-3 font-sans text-sm font-medium text-[var(--color-ink)] md:hidden"
+    <div className="flex min-h-screen flex-col">
+      <header className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4 sm:px-8">
+        <div className="flex items-center gap-2.5">
+          <Image src="/handwrought-icon.svg" alt="" width={28} height={28} priority />
+          <span className="font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)]">
+            HandWrought
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/app"
+            className="rounded-md px-3 py-1.5 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
           >
-            Generation options
-            <span className={`text-[var(--color-ink-muted)] transition-transform ${optionsOpen ? "rotate-180" : ""}`}>⌄</span>
-          </button>
-          <div className={`${optionsOpen ? "flex h-[55vh]" : "hidden"} flex-col md:flex md:h-full`}>
-            <GeneratorPanel onGenerate={handleSend} isThinking={isThinking} />
+            Sign in
+          </Link>
+          <Link
+            href="/checkout"
+            className="rounded-full bg-[var(--color-accent)] px-4 py-1.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+          >
+            Get started
+          </Link>
+        </div>
+      </header>
+
+      <main className="flex-1">
+        <section className="mx-auto flex max-w-3xl flex-col items-center px-5 py-20 text-center sm:py-28">
+          <p className="mb-4 font-mono text-xs tracking-[0.15em] text-[var(--color-accent)]">
+            WRITTEN BY HAND · SHAPED BY AI
+          </p>
+          <h1 className="font-serif text-4xl font-semibold leading-tight text-[var(--color-ink)] sm:text-5xl">
+            An AI writing companion that stays out of your way.
+          </h1>
+          <p className="mt-5 max-w-xl font-sans text-base text-[var(--color-ink-muted)] sm:text-lg">
+            Draft, edit, and polish long-form writing with inline AI suggestions — powered by your own API key, so
+            your words stay yours.
+          </p>
+          <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row">
+            <Link
+              href="/checkout"
+              className="w-full rounded-full bg-[var(--color-accent)] px-6 py-3 text-center font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)] sm:w-auto"
+            >
+              Get HandWrought — one-time payment
+            </Link>
+            <a
+              href="#pricing"
+              className="w-full rounded-full border border-[var(--color-border)] px-6 py-3 text-center font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)] sm:w-auto"
+            >
+              See pricing
+            </a>
           </div>
-        </div>
-        <div className="min-h-0 flex-1">
-          <DocumentPanel
-            ref={documentPanelRef}
-            documentText={documentText}
-            onChangeDocument={setDocumentText}
-            pendingSuggestion={pendingSuggestion}
-            onEditSuggestionText={handleEditSuggestionText}
-            onAccept={handleAccept}
-            onReject={handleReject}
-            onSelectOption={handleSelectOption}
-            onQuickEdit={handleSend}
-            isThinking={isThinking}
-          />
-        </div>
+        </section>
+
+        <section className="border-t border-[var(--color-border)] bg-[var(--color-paper-inset)] px-5 py-16 sm:py-20">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="text-center font-serif text-2xl font-semibold text-[var(--color-ink)] sm:text-3xl">
+              Everything you need to write, nothing you don&apos;t
+            </h2>
+            <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {FEATURES.map((f) => (
+                <div key={f.title} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+                  <h3 className="font-sans text-sm font-semibold text-[var(--color-ink)]">{f.title}</h3>
+                  <p className="mt-2 font-sans text-sm text-[var(--color-ink-muted)]">{f.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="px-5 py-16 sm:py-20">
+          <div className="mx-auto max-w-3xl">
+            <h2 className="text-center font-serif text-2xl font-semibold text-[var(--color-ink)] sm:text-3xl">
+              How it works
+            </h2>
+            <ol className="mt-10 flex flex-col gap-6">
+              {STEPS.map((step, i) => (
+                <li key={step.title} className="flex gap-4">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-accent-tint)] font-mono text-xs font-semibold text-[var(--color-accent)]">
+                    {i + 1}
+                  </span>
+                  <div>
+                    <h3 className="font-sans text-sm font-semibold text-[var(--color-ink)]">{step.title}</h3>
+                    <p className="mt-1 font-sans text-sm text-[var(--color-ink-muted)]">{step.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section id="pricing" className="scroll-mt-8 border-t border-[var(--color-border)] px-5 py-16 sm:py-20">
+          <div className="mx-auto max-w-md">
+            <h2 className="text-center font-serif text-2xl font-semibold text-[var(--color-ink)] sm:text-3xl">
+              Simple, one-time pricing
+            </h2>
+            <div className="mt-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-paper-inset)] p-6">
+              <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Lifetime access</p>
+              <p className="mt-1 font-serif text-4xl font-semibold text-[var(--color-ink)]">
+                $49 <span className="font-sans text-base font-normal text-[var(--color-ink-muted)]">one-time</span>
+              </p>
+              <ul className="mt-5 flex flex-col gap-2 font-sans text-sm text-[var(--color-ink)]">
+                <li>Unlimited documents, no subscription</li>
+                <li>All languages and tones</li>
+                <li>Full formatting toolbar & Markdown export</li>
+                <li>Free updates, forever</li>
+              </ul>
+              <Link
+                href="/checkout"
+                className="mt-6 block w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 text-center font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+              >
+                Buy now
+              </Link>
+              <p className="mt-3 text-center font-sans text-xs text-[var(--color-ink-muted)]">
+                Requires your own free Gemini API key.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
+
+      <footer className="border-t border-[var(--color-border)] px-5 py-6 text-center font-sans text-xs text-[var(--color-ink-muted)]">
+        © {new Date().getFullYear()} HandWrought.
+      </footer>
     </div>
   );
 }

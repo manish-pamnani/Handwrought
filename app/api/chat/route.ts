@@ -13,6 +13,8 @@ type RequestBody = {
   /** plain text immediately before/after the cursor, resolved client-side (only meaningful when selectedText is null) */
   cursorContextBefore: string;
   cursorContextAfter: string;
+  /** user-supplied Gemini API key (BYOK), read from client-side localStorage; null if not set */
+  apiKey: string | null;
 };
 
 function buildContextPrompt(
@@ -41,13 +43,9 @@ async function callGemini(
   document: string,
   selectedText: string | null,
   cursorContextBefore: string,
-  cursorContextAfter: string
+  cursorContextAfter: string,
+  apiKey: string
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set. Add it to .env.local to use the Gemini test provider.");
-  }
-
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`,
     {
@@ -89,16 +87,34 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing messages or document." }, { status: 400 });
   }
 
+  // ---- BYOK: resolve the Gemini key ------------------------------------
+  // Users bring their own key, supplied per-request from client-side
+  // localStorage; it is never persisted server-side. GEMINI_API_KEY (if set
+  // in .env.local) is a local-dev-only convenience so the route can be
+  // exercised without going through the UI — it's never used in production,
+  // so a stray personal key can't end up silently serving every visitor.
+  const userKey = typeof body.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : null;
+  const devFallback = process.env.NODE_ENV !== "production" ? process.env.GEMINI_API_KEY : undefined;
+  const apiKey = userKey ?? devFallback ?? null;
+  if (!apiKey) {
+    return NextResponse.json({ error: "Add your Gemini API key in Settings to generate text." }, { status: 400 });
+  }
+  // Dev-only visibility: confirms whether this request actually used the
+  // BYOK key from Settings or silently fell back to .env.local's key.
+  // Never sent in production — inspect it in the Network tab response headers.
+  const keySource = userKey ? "byok" : "dev-fallback";
+
   try {
     // ---- GEMINI FLASH LITE (latest, active) ------------------------------
     // Free-tier real model, used to test look-and-feel before switching to
-    // a paid provider for production. Needs GEMINI_API_KEY in .env.local.
+    // a paid provider for production.
     const raw = await callGemini(
       messages,
       document,
       selectedText ?? null,
       cursorContextBefore ?? "",
-      cursorContextAfter ?? ""
+      cursorContextAfter ?? "",
+      apiKey
     );
 
     // ---- FAKE / MOCK MODE (commented out) ------------------------------
@@ -133,7 +149,11 @@ export async function POST(req: Request) {
     // ---------------------------------------------------------------------
 
     const parsed = parseAssistantReply(raw);
-    return NextResponse.json(parsed);
+    const response = NextResponse.json(parsed);
+    if (process.env.NODE_ENV !== "production") {
+      response.headers.set("X-Gemini-Key-Source", keySource);
+    }
+    return response;
   } catch (err) {
     console.error("chat api error", err);
     const message = err instanceof Error ? err.message : "The writing assistant is unavailable right now.";
