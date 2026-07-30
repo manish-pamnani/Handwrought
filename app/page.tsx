@@ -129,10 +129,9 @@ export default function LandingPage() {
             <div className="mt-8 rounded-xl border border-[var(--color-border)] bg-[var(--color-paper-inset)] p-6">
               <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Lifetime access</p>
               <p className="mt-1 font-serif text-4xl font-semibold text-[var(--color-ink)]">
-                $49 <span className="font-sans text-base font-normal text-[var(--color-ink-muted)]">one-time</span>
+                $9.99 <span className="font-sans text-base font-normal text-[var(--color-ink-muted)]">one-time</span>
               </p>
               <ul className="mt-5 flex flex-col gap-2 font-sans text-sm text-[var(--color-ink)]">
-                <li>Unlimited documents, no subscription</li>
                 <li>All languages and tones</li>
                 <li>Full formatting toolbar & Markdown export</li>
                 <li>Free updates, forever</li>
@@ -145,6 +144,12 @@ export default function LandingPage() {
               </Link>
               <p className="mt-3 text-center font-sans text-xs text-[var(--color-ink-muted)]">
                 Requires your own free Gemini API key.
+              </p>
+              <p className="mt-2 text-center font-sans text-xs text-[var(--color-ink-muted)]">
+                First 150 buyers:{" "}
+                <Link href="/checkout?promo=EARLYBIRD50" className="text-[var(--color-accent)] underline">
+                  get it for $4.99
+                </Link>
               </p>
             </div>
           </div>
