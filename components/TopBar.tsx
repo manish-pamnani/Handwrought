@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState, type RefObject } from "react";
 import { countWords } from "@/lib/wordCount";
 import type { DocumentPanelHandle } from "./DocumentPanel";
@@ -49,12 +50,12 @@ export default function TopBar({ documentText, documentPanelRef, userEmail, onSi
 
   return (
     <header className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-3">
-      <div className="flex items-center gap-2.5">
+      <Link href="/" className="flex items-center gap-2.5">
         <Image src="/handwrought-icon.svg" alt="" width={26} height={26} priority />
         <span className="font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)]">
           HandWrought
         </span>
-      </div>
+      </Link>
 
       <div className="flex items-center gap-4">
         <span className="font-mono text-xs tracking-wide text-[var(--color-ink-muted)]">

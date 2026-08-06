@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { LANGUAGES, TONES } from "@/lib/constants";
+import { useAuth } from "@/lib/AuthContext";
 
 const FEATURES = [
   {
@@ -31,6 +34,8 @@ const STEPS = [
 ];
 
 export default function LandingPage() {
+  const { user, loading } = useAuth();
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4 sm:px-8">
@@ -41,18 +46,29 @@ export default function LandingPage() {
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <Link
-            href="/app"
-            className="rounded-md px-3 py-1.5 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/checkout"
-            className="rounded-full bg-[var(--color-accent)] px-4 py-1.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
-          >
-            Get started
-          </Link>
+          {!loading && user ? (
+            <Link
+              href="/app"
+              className="rounded-full bg-[var(--color-accent)] px-4 py-1.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+            >
+              Go to HandWrought
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/app"
+                className="rounded-md px-3 py-1.5 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/checkout"
+                className="rounded-full bg-[var(--color-accent)] px-4 py-1.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+              >
+                Get started
+              </Link>
+            </>
+          )}
         </div>
       </header>
 

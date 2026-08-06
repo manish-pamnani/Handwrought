@@ -5,6 +5,7 @@ import TopBar from "@/components/TopBar";
 import GeneratorPanel from "@/components/GeneratorPanel";
 import DocumentPanel, { type DocumentPanelHandle } from "@/components/DocumentPanel";
 import AuthGate from "@/components/AuthGate";
+import AccessGate from "@/components/AccessGate";
 import SettingsModal from "@/components/SettingsModal";
 import { useAuth } from "@/lib/AuthContext";
 import { getApiKey, setApiKey, clearApiKey } from "@/lib/apiKeyStorage";
@@ -27,7 +28,9 @@ function makeId(): string {
 export default function Page() {
   return (
     <AuthGate>
-      <Home />
+      <AccessGate>
+        <Home />
+      </AccessGate>
     </AuthGate>
   );
 }
