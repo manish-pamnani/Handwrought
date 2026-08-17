@@ -1,14 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect } from "react";
 
 type PaywallModalProps = {
   open: boolean;
   onClose: () => void;
-  onSignUp: () => void;
+  /** "keep going for free" — switches to the faster, lower-quality model for future generations */
+  onContinueFree: () => void;
 };
 
-export default function PaywallModal({ open, onClose, onSignUp }: PaywallModalProps) {
+export default function PaywallModal({ open, onClose, onContinueFree }: PaywallModalProps) {
   useEffect(() => {
     if (!open) return;
     function handleKeyDown(e: KeyboardEvent) {
@@ -31,22 +33,25 @@ export default function PaywallModal({ open, onClose, onSignUp }: PaywallModalPr
         </div>
         <h2 className="font-serif text-lg font-semibold text-[var(--color-ink)]">You&apos;re out of free tries</h2>
         <p className="mt-1 mb-5 font-sans text-[13.5px] leading-relaxed text-[var(--color-ink-muted)]">
-          Sign up to keep going — outlines, rewrites, and every quick edit, right where you&apos;re writing.
+          No pressure — keep writing on the free tier, or upgrade for faster, higher-quality generations whenever
+          you&apos;re ready.
         </p>
 
+        <Link
+          href="/checkout"
+          className="w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 text-center font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+        >
+          Upgrade to Premium
+        </Link>
         <button
           type="button"
-          onClick={onSignUp}
-          className="w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+          onClick={() => {
+            onContinueFree();
+            onClose();
+          }}
+          className="mt-2 w-full rounded-full border border-[var(--color-border)] px-4 py-2.5 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
         >
-          Sign up to keep writing
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-2 w-full rounded-full px-4 py-2.5 font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-paper-inset)]"
-        >
-          Maybe later
+          Continue with free version
         </button>
       </div>
     </div>

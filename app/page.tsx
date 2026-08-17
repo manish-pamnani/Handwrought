@@ -63,6 +63,7 @@ function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [degradedAccepted, setDegradedAccepted] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
   const documentPanelRef = useRef<DocumentPanelHandle>(null);
@@ -100,7 +101,7 @@ function Home() {
   }, [documentText, messages, hydrated, storageKey]);
 
   async function handleSend(text: string): Promise<boolean> {
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
+    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
       setPaywallOpen(true);
       return false;
     }
@@ -137,6 +138,7 @@ function Home() {
           cursorContextBefore,
           cursorContextAfter,
           apiKey,
+          acceptDegraded: degradedAccepted,
         }),
       });
       const data: ChatApiResponse | ChatApiError | null = await res.json().catch(() => null);
@@ -235,7 +237,7 @@ function Home() {
     // Same pre-flight the paywall check inside handleSend does — skip the
     // "drafting…"/error status entirely when we already know it'll just
     // bounce straight to the paywall, so the two don't show at once.
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
+    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
       setPaywallOpen(true);
       return;
     }
@@ -270,10 +272,6 @@ function Home() {
     setApiKeyState(null);
   }
 
-  function openSignUp() {
-    setPaywallOpen(false);
-    setSignUpOpen(true);
-  }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
@@ -357,7 +355,11 @@ function Home() {
         }}
       />
 
-      <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} onSignUp={openSignUp} />
+      <PaywallModal
+        open={paywallOpen}
+        onClose={() => setPaywallOpen(false)}
+        onContinueFree={() => setDegradedAccepted(true)}
+      />
 
       <SettingsModal
         open={settingsOpen}
