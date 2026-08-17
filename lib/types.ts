@@ -40,4 +40,17 @@ export type Selection = {
 export type ChatApiResponse = {
   comment: string;
   suggestion: { mode: SuggestionMode; options: string[] } | null;
+  /** free generations left on the shared key; null when unlimited (BYOK or lifetime access) */
+  creditsRemaining: number | null;
+  /** true if this response was generated with the cheaper fallback model */
+  degraded: boolean;
+};
+
+export type ChatApiError = {
+  error: string;
+  /** distinguishes "out of free credits" from a generic failure, so the
+   *  client can show the upgrade popup instead of a chat error bubble */
+  code?: "credits_exhausted";
+  freeGenerationsUsed?: number;
+  freeGenerationsLimit?: number;
 };

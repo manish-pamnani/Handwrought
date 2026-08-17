@@ -92,7 +92,7 @@ function CheckoutContents() {
             start writing.
           </p>
           <Link
-            href="/app"
+            href="/"
             className="mt-6 block w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 text-center font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
           >
             Continue to HandWrought
@@ -147,8 +147,8 @@ function CheckoutContents() {
               <li>Free updates, forever</li>
             </ul>
             <p className="mt-4 border-t border-[var(--color-border)] pt-4 font-sans text-xs text-[var(--color-ink-muted)]">
-              Requires your own Gemini API key. Final price and any local taxes are shown in the checkout — Paddle
-              adjusts pricing automatically for your country.
+              Unlimited, full-quality generations with HandWrought&apos;s shared key — no API key needed. Final price and
+              any local taxes are shown in the checkout — Paddle adjusts pricing automatically for your country.
             </p>
           </div>
 

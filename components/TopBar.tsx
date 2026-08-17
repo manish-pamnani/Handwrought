@@ -9,12 +9,26 @@ import type { DocumentPanelHandle } from "./DocumentPanel";
 type TopBarProps = {
   documentText: string;
   documentPanelRef: RefObject<DocumentPanelHandle | null>;
-  userEmail: string;
+  isGuest: boolean;
+  userEmail: string | null;
+  lifetimeAccess: boolean;
+  creditsRemaining: number;
   onSignOut: () => void;
   onOpenSettings: () => void;
+  onOpenSignUp: () => void;
 };
 
-export default function TopBar({ documentText, documentPanelRef, userEmail, onSignOut, onOpenSettings }: TopBarProps) {
+export default function TopBar({
+  documentText,
+  documentPanelRef,
+  isGuest,
+  userEmail,
+  lifetimeAccess,
+  creditsRemaining,
+  onSignOut,
+  onOpenSettings,
+  onOpenSignUp,
+}: TopBarProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const wordCount = countWords(documentText);
 
@@ -74,21 +88,37 @@ export default function TopBar({ documentText, documentPanelRef, userEmail, onSi
           Export
         </button>
         <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
-        <span className="max-w-[160px] truncate font-mono text-xs text-[var(--color-ink-muted)]" title={userEmail}>
-          {userEmail}
-        </span>
+        {isGuest ? (
+          <>
+            <span className="max-w-[200px] truncate font-mono text-xs text-[var(--color-ink-muted)]">
+              {lifetimeAccess ? "Guest · lifetime access" : `Guest · ${creditsRemaining} free ${creditsRemaining === 1 ? "try" : "tries"} left`}
+            </span>
+            <button
+              onClick={onOpenSignUp}
+              className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+            >
+              Sign up to save
+            </button>
+          </>
+        ) : (
+          <span className="max-w-[160px] truncate font-mono text-xs text-[var(--color-ink-muted)]" title={userEmail ?? undefined}>
+            {userEmail}
+          </span>
+        )}
         <button
           onClick={onOpenSettings}
           className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
         >
           Settings
         </button>
-        <button
-          onClick={onSignOut}
-          className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
-        >
-          Sign out
-        </button>
+        {!isGuest && (
+          <button
+            onClick={onSignOut}
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+          >
+            Sign out
+          </button>
+        )}
       </div>
     </header>
   );

@@ -1,4 +1,9 @@
-import type { ChatApiResponse, SuggestionMode } from "./types";
+import type { SuggestionMode } from "./types";
+
+type ParsedReply = {
+  comment: string;
+  suggestion: { mode: SuggestionMode; options: string[] } | null;
+};
 
 const MARKERS: { tag: string; mode: SuggestionMode }[] = [
   { tag: "APPEND", mode: "append" },
@@ -20,7 +25,7 @@ const OPTION_SEPARATOR = /-{3}\s*OPTION\s*(?:-{3})?/;
  * closing dashes) since smaller models don't always reproduce the exact
  * delimiter formatting from the system prompt.
  */
-export function parseAssistantReply(raw: string): ChatApiResponse {
+export function parseAssistantReply(raw: string): ParsedReply {
   for (const { tag, mode } of MARKERS) {
     const startMarker = new RegExp(`-{3}\\s*${tag}\\s*(?:-{3})?`);
     const startMatch = startMarker.exec(raw);

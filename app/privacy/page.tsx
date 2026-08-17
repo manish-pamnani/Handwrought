@@ -1,0 +1,87 @@
+import type { Metadata } from "next";
+import LegalPage from "@/components/LegalPage";
+
+export const metadata: Metadata = { title: "Privacy Policy — HandWrought" };
+
+export default function PrivacyPage() {
+  return (
+    <LegalPage title="Privacy Policy">
+      <p>Last updated: July 2026</p>
+
+      <p>
+        HandWrought is operated by Manish Pamnani (&quot;we&quot;, &quot;us&quot;). This page explains what data we
+        collect, why, and who else sees it.
+      </p>
+
+      <h2>Account data</h2>
+      <p>
+        We use Firebase Authentication (Google) to manage sign-up and sign-in. We store your email address and an
+        authentication record; we never see or store your password directly (Firebase handles that). We also store,
+        against your account, whether you&apos;ve purchased lifetime access and the associated transaction ID.
+      </p>
+
+      <h2>Your documents</h2>
+      <p>
+        Documents and chat history you create in HandWrought are stored in your own browser&apos;s local storage,
+        not on our servers. Clearing your browser data will remove them.
+      </p>
+
+      <h2>AI features (Gemini API key and content)</h2>
+      <p>
+        HandWrought is bring-your-own-key: you supply your own Google Gemini API key, stored only in your browser.
+        When you use an AI editing action, your API key and the relevant document text are sent to our server, which
+        forwards the request to Google&apos;s Gemini API and returns the response — this happens in transit only; we
+        don&apos;t log or persist your API key or document content server-side.
+      </p>
+
+      <h2>Payments</h2>
+      <p>
+        Payments are handled entirely by Paddle.com Market Limited, our payment processor and merchant of record.
+        Paddle collects and processes your payment details, billing address, and tax information directly — we
+        never see or store your card details. See{" "}
+        <a href="https://www.paddle.com/legal/privacy" target="_blank" rel="noreferrer">
+          Paddle&apos;s Privacy Policy
+        </a>{" "}
+        for how they handle payment data.
+      </p>
+
+      <h2>What we don&apos;t do</h2>
+      <ul>
+        <li>No analytics or tracking scripts.</li>
+        <li>No cookies — Firebase Authentication keeps you signed in using your browser&apos;s local storage, not cookies.</li>
+        <li>No selling or sharing your data with advertisers.</li>
+      </ul>
+
+      <h2>Third parties we rely on</h2>
+      <ul>
+        <li>Firebase (Google) — authentication and our account database (Firestore).</li>
+        <li>Google Gemini API — powers AI editing features, using your own API key.</li>
+        <li>Paddle.com Market Limited — payment processing and billing, as merchant of record.</li>
+        <li>Our hosting provider — serves the application; standard request logs (e.g. IP address) may be retained briefly for security and abuse prevention.</li>
+      </ul>
+
+      <h2>Your rights</h2>
+      <p>
+        You can request a copy of your account data or ask us to delete your account and associated data at any
+        time by emailing <a href="mailto:manishpamnani169@gmail.com">manishpamnani169@gmail.com</a>. Deleting your
+        account does not affect billing records Paddle is required to retain for tax/legal purposes.
+      </p>
+
+      <h2>Children</h2>
+      <p>HandWrought is not directed at children under 16, and we don&apos;t knowingly collect data from them.</p>
+
+      <h2>Changes to this policy</h2>
+      <p>
+        We may update this policy from time to time. We&apos;ll update the &quot;Last updated&quot; date above when
+        we do.
+      </p>
+
+      <h2>Contact</h2>
+      <p>
+        Questions about this policy? Email{" "}
+        <a href="mailto:manishpamnani169@gmail.com">manishpamnani169@gmail.com</a> or visit our{" "}
+        <a href="/contact">Contact page</a>.
+      </p>
+    </LegalPage>
+  );
+}

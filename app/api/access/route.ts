@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAdminAuth, getAdminDb } from "@/lib/firebaseAdmin";
+import { getAdminAuth } from "@/lib/firebaseAdmin";
+import { getUsage } from "@/lib/serverCredits";
 
 export const runtime = "nodejs";
 
@@ -14,12 +15,12 @@ export async function GET(request: Request) {
   try {
     const decoded = await getAdminAuth().verifyIdToken(idToken);
     uid = decoded.uid;
-  } catch {
+  } catch (err) {
+    console.error("verifyIdToken failed:", err);
     return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
   }
 
-  const snap = await getAdminDb().collection("users").doc(uid).get();
-  const lifetimeAccess = snap.exists && snap.data()?.lifetimeAccess === true;
+  const { lifetimeAccess, freeGenerationsUsed, freeGenerationsLimit } = await getUsage(uid);
 
-  return NextResponse.json({ lifetimeAccess });
+  return NextResponse.json({ lifetimeAccess, freeGenerationsUsed, freeGenerationsLimit });
 }

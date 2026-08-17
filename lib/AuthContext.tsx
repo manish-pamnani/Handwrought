@@ -3,8 +3,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import {
   onAuthStateChanged,
+  signInAnonymously,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  linkWithCredential,
+  EmailAuthProvider,
   signOut,
   type User,
 } from "firebase/auth";
@@ -15,6 +18,7 @@ type AuthContextValue = {
   loading: boolean;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInGuest: () => Promise<void>;
   signOutUser: () => Promise<void>;
 };
 
@@ -33,6 +37,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function signUp(email: string, password: string) {
+    // If the visitor is already an anonymous guest (the common case now that
+    // `/` bootstraps a guest session on load), upgrade that account in place
+    // via linkWithCredential rather than creating a fresh one — this keeps
+    // their uid (and therefore their free-generation count and localStorage
+    // document) intact across the guest → real-account transition.
+    if (auth.currentUser?.isAnonymous) {
+      const credential = EmailAuthProvider.credential(email, password);
+      await linkWithCredential(auth.currentUser, credential);
+      return;
+    }
     await createUserWithEmailAndPassword(auth, email, password);
   }
 
@@ -40,12 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
+  async function signInGuest() {
+    await signInAnonymously(auth);
+  }
+
   async function signOutUser() {
     await signOut(auth);
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOutUser }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInGuest, signOutUser }}>
+      {children}
+    </AuthContext.Provider>
   );
 }
 

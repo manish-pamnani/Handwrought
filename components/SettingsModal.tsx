@@ -7,6 +7,7 @@ type SettingsModalProps = {
   open: boolean;
   onClose: () => void;
   apiKey: string | null;
+  creditsRemaining: number;
   onSave: (key: string) => void;
   onClear: () => void;
 };
@@ -14,7 +15,7 @@ type SettingsModalProps = {
 const inputClasses =
   "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-2 font-sans text-[13px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-tint)]";
 
-export default function SettingsModal({ open, onClose, apiKey, onSave, onClear }: SettingsModalProps) {
+export default function SettingsModal({ open, onClose, apiKey, creditsRemaining, onSave, onClear }: SettingsModalProps) {
   const [draft, setDraft] = useState(apiKey ?? "");
   const [showKey, setShowKey] = useState(false);
 
@@ -43,8 +44,10 @@ export default function SettingsModal({ open, onClose, apiKey, onSave, onClear }
     <Modal open={open} onClose={onClose} title="Gemini API key">
       <div className="flex flex-col gap-3">
         <p className="font-sans text-[13px] text-[var(--color-ink-muted)]">
-          HandWrought is bring-your-own-key: you supply a Gemini API key and generation requests run against your own
-          quota.{" "}
+          {apiKey
+            ? "Generation requests run against your own Gemini quota."
+            : `You're currently using HandWrought's shared key — ${creditsRemaining} free ${creditsRemaining === 1 ? "try" : "tries"} left. `}
+          Bring your own key for unlimited, full-quality generations.{" "}
           <a
             href="https://aistudio.google.com/apikey"
             target="_blank"

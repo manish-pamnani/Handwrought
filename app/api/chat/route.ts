@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { parseAssistantReply } from "@/lib/suggestionParser";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
+import { getAdminAuth } from "@/lib/firebaseAdmin";
+import { getUsage, incrementUsage } from "@/lib/serverCredits";
+import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
 import type { ChatMessage } from "@/lib/types";
 
 export const runtime = "nodejs";
+
+// Full-quality tier: BYOK, lifetime access, or still-in-credit guests.
+const STANDARD_MODEL = "gemini-flash-latest";
+// Fallback tier once a guest's free generations run out and they choose to
+// keep going anyway ("continue with poor quality" in the upgrade popup).
+const DEGRADED_MODEL = "gemini-flash-lite-latest";
 
 type RequestBody = {
   messages: ChatMessage[];
@@ -15,6 +24,8 @@ type RequestBody = {
   cursorContextAfter: string;
   /** user-supplied Gemini API key (BYOK), read from client-side localStorage; null if not set */
   apiKey: string | null;
+  /** true once the user has explicitly chosen "continue with lower quality" in the upgrade popup */
+  acceptDegraded?: boolean;
 };
 
 function buildContextPrompt(
@@ -44,10 +55,11 @@ async function callGemini(
   selectedText: string | null,
   cursorContextBefore: string,
   cursorContextAfter: string,
-  apiKey: string
+  apiKey: string,
+  model: string
 ): Promise<string> {
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,6 +87,20 @@ async function callGemini(
 }
 
 export async function POST(req: Request) {
+  const authHeader = req.headers.get("authorization") ?? "";
+  const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
+  if (!idToken) {
+    return NextResponse.json({ error: "Missing bearer token" }, { status: 401 });
+  }
+
+  let uid: string;
+  try {
+    uid = (await getAdminAuth().verifyIdToken(idToken)).uid;
+  } catch (err) {
+    console.error("verifyIdToken failed:", err);
+    return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
+  }
+
   let body: RequestBody;
   try {
     body = await req.json();
@@ -87,69 +113,79 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing messages or document." }, { status: 400 });
   }
 
-  // ---- BYOK: resolve the Gemini key ------------------------------------
-  // Users bring their own key, supplied per-request from client-side
-  // localStorage; it is never persisted server-side. GEMINI_API_KEY (if set
-  // in .env.local) is a local-dev-only convenience so the route can be
-  // exercised without going through the UI — it's never used in production,
-  // so a stray personal key can't end up silently serving every visitor.
+  // ---- Resolve key + model + credit tier --------------------------------
   const userKey = typeof body.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : null;
-  const devFallback = process.env.NODE_ENV !== "production" ? process.env.GEMINI_API_KEY : undefined;
-  const apiKey = userKey ?? devFallback ?? null;
-  if (!apiKey) {
-    return NextResponse.json({ error: "Add your Gemini API key in Settings to generate text." }, { status: 400 });
+
+  let apiKey: string;
+  let model: string;
+  let creditsRemaining: number | null = null;
+  let degraded = false;
+  let shouldIncrementUsage = false;
+  let keySource: string;
+
+  if (userKey) {
+    // BYOK — unlimited, full quality, runs against the user's own quota.
+    apiKey = userKey;
+    model = STANDARD_MODEL;
+    keySource = "byok";
+  } else {
+    // Local-dev-only convenience so the route can be exercised without a
+    // real shared-key secret configured; never used in production.
+    const devFallback = process.env.NODE_ENV !== "production" ? process.env.GEMINI_API_KEY : undefined;
+    const sharedKey = process.env.GEMINI_SHARED_API_KEY ?? devFallback ?? null;
+    if (!sharedKey) {
+      return NextResponse.json(
+        { error: "Generation is temporarily unavailable. Add your own Gemini API key in Settings to continue." },
+        { status: 503 }
+      );
+    }
+    keySource = process.env.GEMINI_SHARED_API_KEY ? "shared" : "dev-fallback";
+
+    const usage = await getUsage(uid);
+    if (usage.lifetimeAccess) {
+      apiKey = sharedKey;
+      model = STANDARD_MODEL;
+    } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
+      apiKey = sharedKey;
+      model = STANDARD_MODEL;
+      shouldIncrementUsage = true;
+      creditsRemaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
+    } else if (!body.acceptDegraded) {
+      return NextResponse.json(
+        {
+          error: "You've used your free generations.",
+          code: "credits_exhausted",
+          freeGenerationsUsed: usage.freeGenerationsUsed,
+          freeGenerationsLimit: usage.freeGenerationsLimit,
+        },
+        { status: 402 }
+      );
+    } else {
+      apiKey = sharedKey;
+      model = DEGRADED_MODEL;
+      degraded = true;
+      creditsRemaining = 0;
+    }
   }
-  // Dev-only visibility: confirms whether this request actually used the
-  // BYOK key from Settings or silently fell back to .env.local's key.
-  // Never sent in production — inspect it in the Network tab response headers.
-  const keySource = userKey ? "byok" : "dev-fallback";
 
   try {
-    // ---- GEMINI FLASH LITE (latest, active) ------------------------------
-    // Free-tier real model, used to test look-and-feel before switching to
-    // a paid provider for production.
     const raw = await callGemini(
       messages,
       document,
       selectedText ?? null,
       cursorContextBefore ?? "",
       cursorContextAfter ?? "",
-      apiKey
+      apiKey,
+      model
     );
 
-    // ---- FAKE / MOCK MODE (commented out) ------------------------------
-    // Deterministic, no network, no API key — useful as an offline fallback
-    // while iterating on UI with zero cost/latency.
-    //
-    // import { generateMockReply } from "@/lib/mockAssistant";
-    // await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 600));
-    // const raw = generateMockReply({ messages, document, selection });
-    // ---------------------------------------------------------------------
-
-    // ---- REAL ANTHROPIC MODE (commented out, for production) ----------
-    // To switch to the paid production API:
-    //   1. npm install @anthropic-ai/sdk
-    //   2. Add ANTHROPIC_API_KEY to .env.local
-    //   3. Delete/comment the GEMINI block above and uncomment this block
-    //
-    // import Anthropic from "@anthropic-ai/sdk";
-    // const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-    //
-    // const response = await anthropic.messages.create({
-    //   model: "claude-sonnet-5",
-    //   max_tokens: 1024,
-    //   system: buildContextPrompt(document, selection),
-    //   messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    // });
-    //
-    // const raw = response.content
-    //   .filter((block): block is Anthropic.TextBlock => block.type === "text")
-    //   .map((block) => block.text)
-    //   .join("\n");
-    // ---------------------------------------------------------------------
+    if (shouldIncrementUsage) {
+      const newCount = await incrementUsage(uid);
+      creditsRemaining = Math.max(0, FREE_GENERATIONS_LIMIT - newCount);
+    }
 
     const parsed = parseAssistantReply(raw);
-    const response = NextResponse.json(parsed);
+    const response = NextResponse.json({ ...parsed, creditsRemaining, degraded });
     if (process.env.NODE_ENV !== "production") {
       response.headers.set("X-Gemini-Key-Source", keySource);
     }
