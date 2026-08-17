@@ -2,84 +2,47 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
-import { initializePaddle, type Paddle } from "@paddle/paddle-js";
-import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
+import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/AuthContext";
-import { EARLY_BIRD_DISCOUNT_CODE, LIFETIME_ACCESS_PRICE_ID } from "@/lib/constants";
 
-const REGULAR_PRICE_LABEL = "$9.99";
-const EARLY_BIRD_PRICE_LABEL = "$4.99";
+const PRICE_LABEL = "$49";
 
-function formatTotal(totals: CheckoutEventsData["totals"], currencyCode: string): string {
-  // Paddle.js checkout events report totals in major currency units (e.g. 9.99),
-  // unlike the server-side Transactions API which uses minor-unit strings ("999").
-  return new Intl.NumberFormat(undefined, { style: "currency", currency: currencyCode }).format(
-    totals.total,
-  );
+const inputClasses =
+  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-3 py-2 font-sans text-[13px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-tint)]";
+
+function formatCardNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 16);
+  return digits.replace(/(.{4})/g, "$1 ").trim();
 }
 
-function CheckoutContents() {
+function formatExpiry(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+  if (digits.length < 3) return digits;
+  return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+}
+
+export default function CheckoutPage() {
   const { user } = useAuth();
-  const searchParams = useSearchParams();
-
-  // Supports a "buy now with early bird" link, e.g. /checkout?promo=EARLYBIRD50
-  const promoParam = searchParams.get("promo")?.trim().toUpperCase() ?? null;
-  const earlyBirdApplied = promoParam === EARLY_BIRD_DISCOUNT_CODE;
-
-  const [paddle, setPaddle] = useState<Paddle | null>(null);
-  const [checkoutData, setCheckoutData] = useState<CheckoutEventsData | null>(null);
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [cardName, setCardName] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvc, setCvc] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const [complete, setComplete] = useState(false);
-  const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  // Events keep firing after checkout.completed (e.g. checkout.closed), some with
-  // stale/zeroed totals — freeze on the first completed event and ignore the rest.
-  const completedRef = useRef(false);
 
-  useEffect(() => {
-    const token = process.env.NEXT_PUBLIC_PADDLE_CLIENT_TOKEN;
-    const environment = process.env.NEXT_PUBLIC_PADDLE_ENV;
-    if (!token || !environment) return;
-
-    initializePaddle({
-      token,
-      environment: environment as "sandbox" | "production",
-      eventCallback: (event) => {
-        if (!event.name || completedRef.current) return;
-        if (event.name === "checkout.completed" && event.data) {
-          completedRef.current = true;
-          setCheckoutData(event.data);
-          setComplete(true);
-          return;
-        }
-        if (event.name === "checkout.error") {
-          setCheckoutError("Something went wrong opening checkout. Please try again in a moment.");
-        }
-        if (event.data) {
-          setCheckoutData(event.data);
-        }
-      },
-    }).then((p) => {
-      if (p) setPaddle(p);
-    });
-  }, []);
-
-  function openCheckout() {
-    if (!paddle) return;
-    setCheckoutError(null);
-    paddle.Checkout.open({
-      items: [{ priceId: LIFETIME_ACCESS_PRICE_ID, quantity: 1 }],
-      ...(earlyBirdApplied && { discountCode: EARLY_BIRD_DISCOUNT_CODE }),
-      ...(user?.email && { customer: { email: user.email } }),
-      // Threaded through to the transaction.completed webhook so it knows
-      // which account to grant lifetime access to. Guest checkouts (no
-      // signed-in user) omit this — see the TODO in paddleWebhookHandlers.ts.
-      ...(user?.uid && { customData: { firebaseUid: user.uid } }),
-    });
+  // Front-end only for now — no charge is actually processed. Wiring this up
+  // to a real payment provider (creating a charge/session, handling
+  // success/failure webhooks) is a follow-up once a provider account exists.
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    setSubmitting(false);
+    setComplete(true);
   }
 
   if (complete) {
-    const paidLabel = checkoutData ? formatTotal(checkoutData.totals, checkoutData.currency_code) : null;
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[var(--color-paper-inset)] px-4">
         <div className="w-full max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-6 text-center shadow-sm">
@@ -88,8 +51,7 @@ function CheckoutContents() {
           </div>
           <h1 className="font-sans text-lg font-semibold text-[var(--color-ink)]">You&apos;re all set</h1>
           <p className="mt-2 font-sans text-[13px] text-[var(--color-ink-muted)]">
-            Thanks for getting HandWrought{paidLabel ? ` (${paidLabel} paid)` : ""}. Sign in (or create an account) to
-            start writing.
+            Thanks for getting HandWrought. Sign in (or create an account) to start writing.
           </p>
           <Link
             href="/"
@@ -119,31 +81,18 @@ function CheckoutContents() {
         </Link>
       </header>
 
-      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-8 px-5 py-10 sm:py-16">
-        <section className="w-full max-w-sm">
-          <h1 className="text-center font-serif text-xl font-semibold text-[var(--color-ink)]">Order summary</h1>
+      <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-8 px-5 py-10 sm:flex-row sm:py-16">
+        <section className="sm:w-2/5">
+          <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Order summary</h1>
           <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
             <div className="flex items-center justify-between">
               <span className="font-sans text-sm font-medium text-[var(--color-ink)]">HandWrought — lifetime access</span>
-              <span className="font-sans text-sm font-semibold text-[var(--color-ink)]">
-                {earlyBirdApplied ? (
-                  <>
-                    <span className="mr-1.5 text-[var(--color-ink-muted)] line-through">{REGULAR_PRICE_LABEL}</span>
-                    {EARLY_BIRD_PRICE_LABEL}
-                  </>
-                ) : (
-                  REGULAR_PRICE_LABEL
-                )}
-              </span>
+              <span className="font-sans text-sm font-semibold text-[var(--color-ink)]">{PRICE_LABEL}</span>
             </div>
-            {earlyBirdApplied && (
-              <p className="mt-1.5 font-sans text-xs font-medium text-[var(--color-accent)]">
-                Early bird code EARLYBIRD50 applied — 50% off
-              </p>
-            )}
             <ul className="mt-4 flex flex-col gap-1.5 font-sans text-[13px] text-[var(--color-ink-muted)]">
-              <li>Full editor: tone, synonyms, improve, shorten, expand, grammar — unlimited</li>
-              <li>One-time payment, no subscription</li>
+              <li>Unlimited documents, no subscription</li>
+              <li>All languages and tones</li>
+              <li>Full formatting toolbar & Markdown export</li>
               <li>Free updates, forever</li>
             </ul>
             <p className="mt-4 border-t border-[var(--color-border)] pt-4 font-sans text-xs text-[var(--color-ink-muted)]">
@@ -151,40 +100,100 @@ function CheckoutContents() {
               any local taxes are shown in the checkout — Paddle adjusts pricing automatically for your country.
             </p>
           </div>
-
-          {checkoutError && (
-            <p className="mt-3 font-sans text-xs text-red-600" role="alert">
-              {checkoutError}
-            </p>
-          )}
-
-          <button
-            type="button"
-            onClick={openCheckout}
-            disabled={!paddle}
-            className="mt-5 w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-          >
-            {paddle ? "Buy now" : "Loading checkout…"}
-          </button>
-          <p className="mt-3 text-center font-sans text-xs text-[var(--color-ink-muted)]">
-            Have a different promo code? You can enter it inside checkout too.
+          <p className="mt-3 font-sans text-xs text-[var(--color-ink-muted)]">
+            You&apos;ll bring your own Gemini API key after checkout — HandWrought itself never sees your document
+            content.
           </p>
+        </section>
+
+        <section className="sm:w-3/5">
+          <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Payment details</h1>
+          <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+            <label className="flex flex-col gap-1.5">
+              <span className="font-sans text-[13px] font-medium text-[var(--color-ink)]">Email</span>
+              <input
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={inputClasses}
+                placeholder="you@example.com"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="font-sans text-[13px] font-medium text-[var(--color-ink)]">Name on card</span>
+              <input
+                type="text"
+                required
+                autoComplete="cc-name"
+                value={cardName}
+                onChange={(e) => setCardName(e.target.value)}
+                className={inputClasses}
+                placeholder="Jane Doe"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="font-sans text-[13px] font-medium text-[var(--color-ink)]">Card number</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                required
+                autoComplete="cc-number"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
+                className={inputClasses}
+                placeholder="4242 4242 4242 4242"
+                maxLength={19}
+              />
+            </label>
+
+            <div className="flex gap-3">
+              <label className="flex flex-1 flex-col gap-1.5">
+                <span className="font-sans text-[13px] font-medium text-[var(--color-ink)]">Expiry</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  autoComplete="cc-exp"
+                  value={expiry}
+                  onChange={(e) => setExpiry(formatExpiry(e.target.value))}
+                  className={inputClasses}
+                  placeholder="MM/YY"
+                  maxLength={5}
+                />
+              </label>
+              <label className="flex flex-1 flex-col gap-1.5">
+                <span className="font-sans text-[13px] font-medium text-[var(--color-ink)]">CVC</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  required
+                  autoComplete="cc-csc"
+                  value={cvc}
+                  onChange={(e) => setCvc(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  className={inputClasses}
+                  placeholder="123"
+                  maxLength={4}
+                />
+              </label>
+            </div>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="mt-2 w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+            >
+              {submitting ? "Processing…" : `Pay ${PRICE_LABEL}`}
+            </button>
+            <p className="text-center font-sans text-xs text-[var(--color-ink-muted)]">
+              Payments are not yet live — this is a preview of the checkout flow.
+            </p>
+          </form>
         </section>
       </main>
     </div>
   );
 }
-
-export default function CheckoutPage() {
-  return (
-    <Suspense fallback={null}>
-      <CheckoutContents />
-    </Suspense>
-  );
-}
-
-// TODO: transaction.completed webhook — on receipt, look up the transaction's
-// customer email/customData and set a lifetime-access flag for that user in
-// Firestore. This client flow only shows a success screen; it does not grant
-// access. See the paddle:webhooks skill for the Route Handler + signature
-// verification pattern.
