@@ -8,7 +8,8 @@ type SelectionToolbarProps = {
   left: number;
   containerWidth: number;
   disabled: boolean;
-  onAction: (instruction: string) => void;
+  /** resolves true on success, false on failure — drives the per-item "Thinking…" state and inline error */
+  onAction: (instruction: string) => Promise<boolean>;
 };
 
 const ICON_SIZE = 32;
@@ -31,6 +32,8 @@ export default function SelectionToolbar({ top, left, containerWidth, disabled, 
   const [open, setOpen] = useState(false);
   const [toneOpen, setToneOpen] = useState(false);
   const [freeform, setFreeform] = useState("");
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -55,16 +58,26 @@ export default function SelectionToolbar({ top, left, containerWidth, disabled, 
     setOpen(false);
     setToneOpen(false);
     setFreeform("");
+    setPendingKey(null);
+    setError(null);
   }
 
-  function act(instruction: string) {
-    onAction(instruction);
-    close();
+  async function act(instruction: string, key: string) {
+    if (pendingKey) return; // one request at a time
+    setError(null);
+    setPendingKey(key);
+    const ok = await onAction(instruction);
+    setPendingKey(null);
+    if (ok) {
+      close();
+    } else {
+      setError("Something went wrong — try again.");
+    }
   }
 
   function handleFreeformKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter" && freeform.trim()) {
-      act(freeform.trim());
+      act(freeform.trim(), "freeform");
     }
   }
 
@@ -106,31 +119,37 @@ export default function SelectionToolbar({ top, left, containerWidth, disabled, 
             value={freeform}
             onChange={(e) => setFreeform(e.target.value)}
             onKeyDown={handleFreeformKeyDown}
-            placeholder="Tell it what to do…"
-            className="mb-1.5 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-paper-inset)] px-2.5 py-1.5 font-sans text-[13px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-tint)]"
+            disabled={!!pendingKey}
+            placeholder={pendingKey === "freeform" ? "Thinking…" : "Tell it what to do…"}
+            className="mb-1.5 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-paper-inset)] px-2.5 py-1.5 font-sans text-[13px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-tint)] disabled:opacity-60"
           />
 
           <div className="relative">
             <button
               onMouseDown={(e) => e.preventDefault()}
+              disabled={!!pendingKey}
               onClick={() => setToneOpen((o) => !o)}
-              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left font-sans text-[13px] text-[var(--color-ink)] hover:bg-[var(--color-paper-inset)]"
+              className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left font-sans text-[13px] text-[var(--color-ink)] hover:bg-[var(--color-paper-inset)] disabled:opacity-50"
             >
               Change Tone
               <span className="text-[var(--color-ink-muted)]">{toneOpen ? "‹" : "›"}</span>
             </button>
             {toneOpen && (
               <div className="ml-2 mt-0.5 space-y-0.5 border-l border-[var(--color-border)] pl-2">
-                {TONES.map((tone) => (
-                  <button
-                    key={tone}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => act(`Rewrite the selected text in a ${tone.toLowerCase()} tone.`)}
-                    className="block w-full rounded-lg px-2.5 py-1.5 text-left font-sans text-[13px] text-[var(--color-ink)] hover:bg-[var(--color-paper-inset)]"
-                  >
-                    {tone}
-                  </button>
-                ))}
+                {TONES.map((tone) => {
+                  const key = `tone:${tone}`;
+                  return (
+                    <button
+                      key={tone}
+                      onMouseDown={(e) => e.preventDefault()}
+                      disabled={!!pendingKey}
+                      onClick={() => act(`Rewrite the selected text in a ${tone.toLowerCase()} tone.`, key)}
+                      className="block w-full rounded-lg px-2.5 py-1.5 text-left font-sans text-[13px] text-[var(--color-ink)] hover:bg-[var(--color-paper-inset)] disabled:opacity-50"
+                    >
+                      {pendingKey === key ? "Thinking…" : tone}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -139,12 +158,19 @@ export default function SelectionToolbar({ top, left, containerWidth, disabled, 
             <button
               key={label}
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => act(instruction)}
-              className="block w-full rounded-lg px-2.5 py-1.5 text-left font-sans text-[13px] text-[var(--color-ink)] hover:bg-[var(--color-paper-inset)]"
+              disabled={!!pendingKey}
+              onClick={() => act(instruction, label)}
+              className="block w-full rounded-lg px-2.5 py-1.5 text-left font-sans text-[13px] text-[var(--color-ink)] hover:bg-[var(--color-paper-inset)] disabled:opacity-50"
             >
-              {label}
+              {pendingKey === label ? "Thinking…" : label}
             </button>
           ))}
+
+          {error && (
+            <p className="border-t border-[var(--color-border)] px-2.5 pt-1.5 pb-1 font-sans text-[12px] text-red-600">
+              {error}
+            </p>
+          )}
         </div>
       )}
     </div>

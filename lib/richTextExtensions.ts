@@ -36,9 +36,9 @@ export const EDITOR_EXTENSIONS = [
     types: ["heading", "paragraph"],
     alignments: ["left", "center", "right"],
   }),
-  Placeholder.configure({
-    placeholder: "Start writing, or ask the assistant for a hand…",
-  }),
+  // Placeholder.configure({
+  //   placeholder: "Start writing, or ask the assistant for a hand…",
+  // }),
   Image,
   Table.configure({ resizable: true }),
   TableRow,

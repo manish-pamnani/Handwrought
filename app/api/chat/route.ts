@@ -9,10 +9,25 @@ import type { ChatMessage } from "@/lib/types";
 export const runtime = "nodejs";
 
 // Full-quality tier: BYOK, lifetime access, or still-in-credit guests.
-const STANDARD_MODEL = "gemini-flash-latest";
+// gemini-flash-latest has been overloaded/rate-limited more often lately, so
+// gemini-2.5-flash (a pinned version with its own capacity pool) is primary.
+const STANDARD_MODEL = "gemini-2.5-flash";
+// Tried once, automatically, only when STANDARD_MODEL itself is overloaded/
+// rate-limited (502/503/429) — a different model has its own capacity pool,
+// so this rides out Google-side demand spikes without surfacing an error.
+const STANDARD_MODEL_FALLBACK = "gemini-flash-latest";
 // Fallback tier once a guest's free generations run out and they choose to
 // keep going anyway ("continue with poor quality" in the upgrade popup).
 const DEGRADED_MODEL = "gemini-flash-lite-latest";
+
+class GeminiRequestError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = "GeminiRequestError";
+    this.status = status;
+  }
+}
 
 type RequestBody = {
   messages: ChatMessage[];
@@ -77,7 +92,7 @@ async function callGemini(
 
   if (!res.ok) {
     const errText = await res.text().catch(() => "");
-    throw new Error(`Gemini request failed (${res.status}): ${errText}`);
+    throw new GeminiRequestError(res.status, `Gemini request failed (${res.status}): ${errText}`);
   }
 
   const data = await res.json();
@@ -169,15 +184,31 @@ export async function POST(req: Request) {
   }
 
   try {
-    const raw = await callGemini(
-      messages,
-      document,
-      selectedText ?? null,
-      cursorContextBefore ?? "",
-      cursorContextAfter ?? "",
-      apiKey,
-      model
-    );
+    let raw: string;
+    try {
+      raw = await callGemini(
+        messages,
+        document,
+        selectedText ?? null,
+        cursorContextBefore ?? "",
+        cursorContextAfter ?? "",
+        apiKey,
+        model
+      );
+    } catch (err) {
+      const isOverloaded = err instanceof GeminiRequestError && [429, 502, 503].includes(err.status);
+      if (!isOverloaded || model !== STANDARD_MODEL) throw err;
+      console.warn(`${STANDARD_MODEL} unavailable (${(err as GeminiRequestError).status}), retrying with ${STANDARD_MODEL_FALLBACK}`);
+      raw = await callGemini(
+        messages,
+        document,
+        selectedText ?? null,
+        cursorContextBefore ?? "",
+        cursorContextAfter ?? "",
+        apiKey,
+        STANDARD_MODEL_FALLBACK
+      );
+    }
 
     if (shouldIncrementUsage) {
       const newCount = await incrementUsage(uid);

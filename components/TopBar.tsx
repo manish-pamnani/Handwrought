@@ -16,6 +16,8 @@ type TopBarProps = {
   onSignOut: () => void;
   onOpenSettings: () => void;
   onOpenSignUp: () => void;
+  /** lets GuidedAnnotations measure the real credits element to point its arrow at */
+  creditsRef?: RefObject<HTMLSpanElement | null>;
 };
 
 export default function TopBar({
@@ -28,6 +30,7 @@ export default function TopBar({
   onSignOut,
   onOpenSettings,
   onOpenSignUp,
+  creditsRef,
 }: TopBarProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const wordCount = countWords(documentText);
@@ -90,27 +93,32 @@ export default function TopBar({
         <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
         {isGuest ? (
           <>
-            <span className="max-w-[200px] truncate font-mono text-xs text-[var(--color-ink-muted)]">
-              {lifetimeAccess ? "Guest · lifetime access" : `Guest · ${creditsRemaining} free ${creditsRemaining === 1 ? "try" : "tries"} left`}
+            <span
+              ref={creditsRef}
+              className="max-w-[200px] truncate font-mono text-xs text-[var(--color-ink-muted)]"
+            >
+              {lifetimeAccess ? "Guest · lifetime access" : `Guest · ${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`}
             </span>
-            <button
+            {/* <button
               onClick={onOpenSignUp}
-              className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+              className={`rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] ${
+                !lifetimeAccess && creditsRemaining <= 0 ? "animate-signup-pulse" : ""
+              }`}
             >
               Sign up to save
-            </button>
+            </button> */}
           </>
         ) : (
           <span className="max-w-[160px] truncate font-mono text-xs text-[var(--color-ink-muted)]" title={userEmail ?? undefined}>
             {userEmail}
           </span>
         )}
-        <button
+        {/* <button
           onClick={onOpenSettings}
           className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
         >
           Settings
-        </button>
+        </button> */}
         {!isGuest && (
           <button
             onClick={onSignOut}

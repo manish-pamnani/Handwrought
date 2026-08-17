@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type RefObject } from "react";
 import { EditorContent, useEditor, generateHTML, type Editor } from "@tiptap/react";
 import { findTable, TableMap } from "@tiptap/pm/tables";
 import { TextSelection } from "@tiptap/pm/state";
@@ -8,6 +8,7 @@ import { EDITOR_EXTENSIONS, getMarkdown } from "@/lib/richTextExtensions";
 import type { Suggestion } from "@/lib/types";
 import SelectionToolbar from "./SelectionToolbar";
 import FormattingToolbar from "./FormattingToolbar";
+import WelcomeOverlay from "./WelcomeOverlay";
 
 /** Moves the selection into the table's last cell (for row) or last cell of
  *  its first row (for column), then runs the corresponding add command — so
@@ -40,8 +41,22 @@ type DocumentPanelProps = {
   onAccept: () => void;
   onReject: () => void;
   onSelectOption: (index: number) => void;
-  onQuickEdit: (text: string) => void;
+  /** resolves true on success, false on failure — see SelectionToolbar's per-item "Thinking…" state */
+  onQuickEdit: (text: string) => Promise<boolean>;
   isThinking: boolean;
+  /** fires once, the first time the user presses Enter on an empty document with a typed topic */
+  onOutlineEnter: (topic: string) => void;
+  /** whether the passive welcome state (logo/tagline) should still be showing */
+  showWelcome: boolean;
+  /** fires on the editor's first focus — the signal that latches showWelcome off for good */
+  onEditorFocus?: () => void;
+  /** drives the brief "drafting an outline…" status line for the Enter-to-outline flow */
+  outlineStatus?: "idle" | "drafting" | "error";
+  /** lets GuidedAnnotations measure the real toolbar row to point its arrow at */
+  toolbarRowRef?: RefObject<HTMLDivElement | null>;
+  /** for the welcome card's "N free outlines left" line */
+  creditsRemaining: number;
+  lifetimeAccess: boolean;
 };
 
 type Rect = { top: number; left: number; width: number; height: number };
@@ -66,11 +81,29 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     onSelectOption,
     onQuickEdit,
     isThinking,
+    onOutlineEnter,
+    showWelcome,
+    onEditorFocus,
+    toolbarRowRef,
+    outlineStatus = "idle",
+    creditsRemaining,
+    lifetimeAccess,
   },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastEmitted = useRef(documentText);
+  const outlineFiredRef = useRef(false);
+  const [welcomeTopic, setWelcomeTopic] = useState("");
+  // Tiptap only wires up `editorProps.handleKeyDown` once, at editor creation
+  // — mirror the latest pendingSuggestion/onOutlineEnter into refs so that
+  // handler always reads current values instead of a stale first-render closure.
+  const pendingSuggestionRef = useRef(pendingSuggestion);
+  const onOutlineEnterRef = useRef(onOutlineEnter);
+  useEffect(() => {
+    pendingSuggestionRef.current = pendingSuggestion;
+    onOutlineEnterRef.current = onOutlineEnter;
+  }, [pendingSuggestion, onOutlineEnter]);
   const [toolbarPos, setToolbarPos] = useState({ top: 0, left: 0, containerWidth: 0 });
   const [highlightRects, setHighlightRects] = useState<Rect[]>([]);
   const [hasSelection, setHasSelection] = useState(false);
@@ -141,13 +174,29 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     content: documentText,
     editable: !pendingSuggestion,
     immediatelyRender: false,
+    editorProps: {
+      handleKeyDown(view, event) {
+        if (event.key !== "Enter" || event.shiftKey) return false;
+        if (outlineFiredRef.current || pendingSuggestionRef.current) return false;
+        const topic = view.state.doc.textContent.trim();
+        if (!topic) return false;
+        event.preventDefault();
+        outlineFiredRef.current = true;
+        view.dispatch(view.state.tr.delete(0, view.state.doc.content.size));
+        onOutlineEnterRef.current(topic);
+        return true;
+      },
+    },
     onUpdate: ({ editor }) => {
       const markdown = getMarkdown(editor);
       lastEmitted.current = markdown;
       onChangeDocument(markdown);
     },
     onSelectionUpdate: ({ editor }) => syncSelection(editor),
-    onFocus: () => setEditorFocused(true),
+    onFocus: () => {
+      setEditorFocused(true);
+      onEditorFocus?.();
+    },
     onBlur: () => setEditorFocused(false),
   });
 
@@ -166,6 +215,21 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
   useEffect(() => {
     editor?.setEditable(!pendingSuggestion);
   }, [pendingSuggestion, editor]);
+
+  // Shares the exact same trigger (onOutlineEnter) and one-shot guard
+  // (outlineFiredRef) as the editor's own Enter-to-outline keydown handler,
+  // so using this card and then later pressing Enter in the document can't
+  // both fire an outline generation.
+  function handleWelcomeGenerate() {
+    if (!welcomeTopic.trim() || outlineFiredRef.current || pendingSuggestion) return;
+    outlineFiredRef.current = true;
+    // This card never focuses the real editor, so it has to latch the
+    // welcome state closed itself — otherwise it'd stay visible on top of
+    // the generation that's about to start.
+    onEditorFocus?.();
+    onOutlineEnter(welcomeTopic.trim());
+    setWelcomeTopic("");
+  }
 
   function handleAccept() {
     if (!editor || !pendingSuggestion) return;
@@ -204,12 +268,36 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
       </div>
 
       {!pendingSuggestion && (
-        <div className="border-b border-[var(--color-border)] px-10 sm:px-16">
+        <div ref={toolbarRowRef} className="border-b border-[var(--color-border)] px-10 sm:px-16">
           <FormattingToolbar editor={editor} />
         </div>
       )}
 
       <div ref={containerRef} className="relative flex-1 overflow-y-auto px-10 pb-10 sm:px-16">
+        {!pendingSuggestion && (
+          <WelcomeOverlay
+            active={showWelcome}
+            topic={welcomeTopic}
+            onTopicChange={setWelcomeTopic}
+            onGenerate={handleWelcomeGenerate}
+            creditsRemaining={creditsRemaining}
+            lifetimeAccess={lifetimeAccess}
+          />
+        )}
+
+        {outlineStatus !== "idle" && (
+          <div className="mb-3 flex items-center gap-2 font-mono text-xs">
+            {outlineStatus === "drafting" ? (
+              <span className="flex items-center gap-2 text-[var(--color-accent)]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]" />
+                drafting your article…
+              </span>
+            ) : (
+              <span className="text-red-600">Couldn&apos;t write that draft — try again.</span>
+            )}
+          </div>
+        )}
+
         {hasSelection && !editorFocused && !pendingSuggestion && (
           <div className="pointer-events-none absolute inset-0">
             {highlightRects.map((r, i) => (
@@ -271,7 +359,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
           <div className="w-full font-serif text-[19px] leading-[1.9] text-[var(--color-ink)]">
             <div className="prose-doc" dangerouslySetInnerHTML={{ __html: beforeHtml }} />
 
-            <div className="my-2 rounded-lg border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] px-4 py-3">
+            <div className="animate-suggestion-fade-in my-2 rounded-lg border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] px-4 py-3">
               <span className="mb-2 block font-mono text-[10px] uppercase tracking-wider text-[var(--color-accent)]">
                 {MODE_LABEL[pendingSuggestion.mode]}
                 {pendingSuggestion.fellBackToAppend && " · nothing was selected, appended instead"}
@@ -320,6 +408,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
             <div className="prose-doc" dangerouslySetInnerHTML={{ __html: afterHtml }} />
           </div>
         )}
+
       </div>
     </div>
   );
