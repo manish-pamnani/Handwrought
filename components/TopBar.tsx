@@ -18,6 +18,8 @@ type TopBarProps = {
   onOpenSignUp: () => void;
   /** lets GuidedAnnotations measure the real credits element to point its arrow at */
   creditsRef?: RefObject<HTMLSpanElement | null>;
+  /** docking target the whole-document composer pill animates into once onboarding latches */
+  headerSlotRef?: RefObject<HTMLDivElement | null>;
 };
 
 export default function TopBar({
@@ -31,6 +33,7 @@ export default function TopBar({
   onOpenSettings,
   onOpenSignUp,
   creditsRef,
+  headerSlotRef,
 }: TopBarProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const wordCount = countWords(documentText);
@@ -66,15 +69,19 @@ export default function TopBar({
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-3">
-      <Link href="/" className="flex items-center gap-2.5">
+    <header className="flex justify-between items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-3">
+      <Link href="/" className="flex shrink-0 items-center gap-2.5">
         <Image src="/handwrought-icon.svg" alt="" width={26} height={26} priority />
         <span className="font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)]">
           HandWrought
         </span>
       </Link>
 
-      <div className="flex items-center gap-4">
+      {/* Empty on purpose — DocumentComposer docks its pill here (via
+          fixed-position + measured-rect animation) once onboarding latches. */}
+      <div ref={headerSlotRef} className="h-9 max-w-sm min-w-0 flex-1" />
+
+      <div className="flex shrink-0 items-center gap-4">
         <span className="font-mono text-xs tracking-wide text-[var(--color-ink-muted)]">
           {wordCount} {wordCount === 1 ? "word" : "words"} · {documentText.length} {documentText.length === 1 ? "character" : "characters"}
         </span>

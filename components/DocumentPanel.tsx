@@ -57,6 +57,10 @@ type DocumentPanelProps = {
   /** for the welcome card's "N free outlines left" line */
   creditsRemaining: number;
   lifetimeAccess: boolean;
+  /** lets DocumentComposer measure where its pill starts before it docks into the header */
+  centerSlotRef: RefObject<HTMLDivElement | null>;
+  /** shared one-shot guard with DocumentComposer so onboarding can't fire twice (Enter-in-editor vs. the composer's own submit) */
+  outlineFiredRef: RefObject<boolean>;
 };
 
 type Rect = { top: number; left: number; width: number; height: number };
@@ -88,13 +92,13 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     outlineStatus = "idle",
     creditsRemaining,
     lifetimeAccess,
+    centerSlotRef,
+    outlineFiredRef,
   },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const lastEmitted = useRef(documentText);
-  const outlineFiredRef = useRef(false);
-  const [welcomeTopic, setWelcomeTopic] = useState("");
   // Tiptap only wires up `editorProps.handleKeyDown` once, at editor creation
   // — mirror the latest pendingSuggestion/onOutlineEnter into refs so that
   // handler always reads current values instead of a stale first-render closure.
@@ -216,21 +220,6 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     editor?.setEditable(!pendingSuggestion);
   }, [pendingSuggestion, editor]);
 
-  // Shares the exact same trigger (onOutlineEnter) and one-shot guard
-  // (outlineFiredRef) as the editor's own Enter-to-outline keydown handler,
-  // so using this card and then later pressing Enter in the document can't
-  // both fire an outline generation.
-  function handleWelcomeGenerate() {
-    if (!welcomeTopic.trim() || outlineFiredRef.current || pendingSuggestion) return;
-    outlineFiredRef.current = true;
-    // This card never focuses the real editor, so it has to latch the
-    // welcome state closed itself — otherwise it'd stay visible on top of
-    // the generation that's about to start.
-    onEditorFocus?.();
-    onOutlineEnter(welcomeTopic.trim());
-    setWelcomeTopic("");
-  }
-
   function handleAccept() {
     if (!editor || !pendingSuggestion) return;
     const docSize = editor.state.doc.content.size;
@@ -277,11 +266,9 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
         {!pendingSuggestion && (
           <WelcomeOverlay
             active={showWelcome}
-            topic={welcomeTopic}
-            onTopicChange={setWelcomeTopic}
-            onGenerate={handleWelcomeGenerate}
             creditsRemaining={creditsRemaining}
             lifetimeAccess={lifetimeAccess}
+            centerSlotRef={centerSlotRef}
           />
         )}
 
@@ -361,8 +348,10 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
 
             <div className="animate-suggestion-fade-in my-2 rounded-lg border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] px-4 py-3">
               <span className="mb-2 block font-mono text-[10px] uppercase tracking-wider text-[var(--color-accent)]">
-                {MODE_LABEL[pendingSuggestion.mode]}
-                {pendingSuggestion.fellBackToAppend && " · nothing was selected, appended instead"}
+                {pendingSuggestion.wholeDocument ? "Proposed rewrite of the whole document" : MODE_LABEL[pendingSuggestion.mode]}
+                {!pendingSuggestion.wholeDocument &&
+                  pendingSuggestion.fellBackToAppend &&
+                  " · nothing was selected, appended instead"}
               </span>
               <textarea
                 value={pendingSuggestion.text}

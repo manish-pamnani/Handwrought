@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import TopBar from "@/components/TopBar";
 import DocumentPanel, { type DocumentPanelHandle } from "@/components/DocumentPanel";
+import DocumentComposer from "@/components/DocumentComposer";
 import GuidedAnnotations from "@/components/GuidedAnnotations";
 import AuthGate from "@/components/AuthGate";
 import RefreshLoader from "@/components/RefreshLoader";
@@ -67,9 +68,22 @@ function Home() {
   const [degradedAccepted, setDegradedAccepted] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
+  const [welcomeTopic, setWelcomeTopic] = useState("");
+  const [composerError, setComposerError] = useState<string | null>(null);
   const documentPanelRef = useRef<DocumentPanelHandle>(null);
   const toolbarRowRef = useRef<HTMLDivElement>(null);
   const creditsRef = useRef<HTMLSpanElement>(null);
+  const centerSlotRef = useRef<HTMLDivElement>(null);
+  const headerSlotRef = useRef<HTMLDivElement>(null);
+  // Shared with DocumentPanel's own Enter-in-editor handler so the one-time
+  // onboarding outline generation can't fire twice (composer submit vs. Enter key).
+  const outlineFiredRef = useRef(false);
+  // Separate from hasStartedWriting on purpose: the welcome backdrop fades
+  // immediately on submit (so the drafting document is visible), but the
+  // composer pill should stay put, centered, until the draft actually lands
+  // — flying to the header reads as "generation's done, do more from up
+  // here" rather than "still working, and also the box just moved".
+  const [composerDocked, setComposerDocked] = useState(false);
 
   // Load any saved session on mount. This one-time hydration from an
   // external store (localStorage) necessarily sets state from an effect.
@@ -101,7 +115,28 @@ function Home() {
     }
   }, [documentText, messages, hydrated, storageKey]);
 
-  async function handleSend(text: string): Promise<boolean> {
+  // Docks the composer pill into the header once there's nothing left for it
+  // to wait on: either onboarding ended without ever starting a generation
+  // (a plain editor focus, or a returning user with an existing document —
+  // outlineFiredRef.current is still false in both cases), or the one-shot
+  // outline it kicked off has actually finished (success or failure).
+  // Gating on outlineFiredRef + outlineStatus, rather than just
+  // hasStartedWriting, is what keeps the pill parked in place while
+  // "drafting your article…" is showing instead of flying off mid-generation.
+  useEffect(() => {
+    if (!hasStartedWriting || composerDocked) return;
+    if (!outlineFiredRef.current || outlineStatus !== "drafting") {
+      setComposerDocked(true);
+    }
+  }, [hasStartedWriting, outlineStatus, composerDocked]);
+
+  /** `wholeDocument` is for the header composer's whole-document instructions
+   *  (e.g. "fix grammar throughout") — it tells the model the entire
+   *  document is "selected" (so REPLACE_SELECTION is actually legal per its
+   *  own rules) and forces the resulting suggestion's range to span the full
+   *  document client-side, regardless of which mode comes back, so the
+   *  review UI swaps in place instead of appending below the old draft. */
+  async function handleSend(text: string, opts?: { wholeDocument?: boolean }): Promise<boolean> {
     if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
       setPaywallOpen(true);
       return false;
@@ -116,7 +151,9 @@ function Home() {
     let selectedText: string | null = null;
     let cursorContextBefore = "";
     let cursorContextAfter = "";
-    if (editor) {
+    if (opts?.wholeDocument) {
+      selectedText = documentText;
+    } else if (editor) {
       const { from, to } = editor.state.selection;
       const docSize = editor.state.doc.content.size;
       if (to > from) {
@@ -164,7 +201,10 @@ function Home() {
         let rangeEnd: number;
         let fellBackToAppend = false;
 
-        if (mode === "append") {
+        if (opts?.wholeDocument) {
+          rangeStart = 0;
+          rangeEnd = docSize;
+        } else if (mode === "append") {
           rangeStart = rangeEnd = docSize;
         } else if (mode === "insert_at_cursor") {
           rangeStart = rangeEnd = editor?.state.selection.to ?? docSize;
@@ -195,6 +235,7 @@ function Home() {
           rangeStart,
           rangeEnd,
           fellBackToAppend,
+          wholeDocument: !!opts?.wholeDocument,
         });
       } else {
         setMessages((m) => [...m, { id: makeId(), role: "assistant", content: data.comment }]);
@@ -230,6 +271,7 @@ function Home() {
         rangeStart: 0,
         rangeEnd: 0,
         fellBackToAppend: false,
+        wholeDocument: false,
       });
       setOutlineStatus("idle");
       return;
@@ -245,6 +287,42 @@ function Home() {
     setOutlineStatus("drafting");
     const ok = await handleSend(buildArticleInstruction(topic));
     setOutlineStatus(ok ? "idle" : "error");
+  }
+
+  function handleTopicChange(value: string) {
+    setWelcomeTopic(value);
+    if (composerError) setComposerError(null);
+  }
+
+  // Before onboarding finishes, submitting the composer behaves exactly like
+  // it always has: a one-shot outline generation, guarded against firing
+  // twice (composer submit vs. Enter-in-editor) by outlineFiredRef, and it
+  // latches hasStartedWriting — which is what starts the pill's dock-to-header
+  // animation. After that, the exact same pill (now living in the header)
+  // becomes a reusable whole-document instruction box: each submit just goes
+  // straight through handleSend with the full document as context, the same
+  // path SelectionToolbar's per-selection quick actions use.
+  async function handleComposerSubmit() {
+    const value = welcomeTopic.trim();
+    if (!value) return;
+
+    if (!hasStartedWriting) {
+      if (outlineFiredRef.current || pendingSuggestion) return;
+      outlineFiredRef.current = true;
+      setHasStartedWriting(true);
+      setWelcomeTopic("");
+      handleOutlineEnter(value);
+      return;
+    }
+
+    if (isThinking || pendingSuggestion) return;
+    setComposerError(null);
+    const ok = await handleSend(value, { wholeDocument: true });
+    if (ok) {
+      setWelcomeTopic("");
+    } else {
+      setComposerError("Something went wrong — try again.");
+    }
   }
 
   function handleAccept() {
@@ -295,6 +373,7 @@ function Home() {
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSignUp={() => setSignUpOpen(true)}
         creditsRef={creditsRef}
+        headerSlotRef={headerSlotRef}
       />
       <main className="min-h-0 flex-1">
         <DocumentPanel
@@ -315,8 +394,21 @@ function Home() {
           toolbarRowRef={toolbarRowRef}
           creditsRemaining={access.creditsRemaining}
           lifetimeAccess={access.lifetimeAccess}
+          centerSlotRef={centerSlotRef}
+          outlineFiredRef={outlineFiredRef}
         />
       </main>
+
+      <DocumentComposer
+        docked={composerDocked}
+        centerSlotRef={centerSlotRef}
+        headerSlotRef={headerSlotRef}
+        topic={welcomeTopic}
+        onTopicChange={handleTopicChange}
+        onSubmit={handleComposerSubmit}
+        disabled={isThinking || !!pendingSuggestion}
+        error={composerError}
+      />
 
       {/* {!pendingSuggestion && (
         <button

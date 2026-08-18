@@ -18,6 +18,12 @@ export type Suggestion = {
   /** true when a replace_selection request had to fall back to append
    *  because nothing was selected at proposal time */
   fellBackToAppend: boolean;
+  /** true when this suggestion is a deliberate whole-document rewrite (from
+   *  the header composer) — rangeStart/rangeEnd always span the full
+   *  document regardless of what mode the model returned, so the review UI
+   *  shows the proposal in place of the old document instead of appended
+   *  below it */
+  wholeDocument: boolean;
 };
 
 export type ChatRole = "user" | "assistant";
