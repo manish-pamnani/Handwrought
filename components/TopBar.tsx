@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, type RefObject } from "react";
 import { countWords } from "@/lib/wordCount";
+import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
 import type { DocumentPanelHandle } from "./DocumentPanel";
 
 type TopBarProps = {
@@ -99,14 +100,30 @@ export default function TopBar({
         </button>
         <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
         {isGuest ? (
-          <>
+          <div className="group relative">
             <span
               ref={creditsRef}
-              className="max-w-[200px] truncate font-mono text-xs text-[var(--color-ink-muted)]"
+              className="max-w-[200px] cursor-help truncate font-mono text-xs text-[var(--color-ink-muted)] underline decoration-dotted decoration-[var(--color-border)] underline-offset-4"
             >
               {lifetimeAccess ? "Guest · lifetime access" : `Guest · ${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`}
             </span>
-          </>
+
+            <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-3 opacity-0 shadow-lg transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+              <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
+              {lifetimeAccess ? (
+                <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
+                  You have lifetime access — every generation runs at full quality, uncapped.
+                </p>
+              ) : (
+                <>
+                  <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
+                    Every AI generation — writing an outline, rewriting the whole document, or a quick edit on a
+                    selection — uses 1 credit. Guests get {FREE_GENERATIONS_LIMIT} free, no card required.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
         ) : (
           <span className="max-w-[160px] truncate font-mono text-xs text-[var(--color-ink-muted)]" title={userEmail ?? undefined}>
             {userEmail}

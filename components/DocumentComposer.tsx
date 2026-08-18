@@ -88,7 +88,7 @@ export default function DocumentComposer({
           value={topic}
           onChange={(e) => onTopicChange(e.target.value)}
           disabled={disabled}
-          placeholder={disabled ? "Thinking…" : "e.g. a welcome email for new users"}
+          placeholder={disabled ? "Thinking…" : "What are we writing today?"}
           className={`min-w-0 flex-1 bg-transparent font-sans text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none disabled:opacity-60 transition-all duration-[420ms] ${
             docked ? "px-2 py-1 text-xs" : "px-3 py-2 text-sm"
           }`}
