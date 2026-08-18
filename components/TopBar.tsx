@@ -17,6 +17,7 @@ type TopBarProps = {
   onSignOut: () => void;
   onOpenSettings: () => void;
   onOpenSignUp: () => void;
+  onOpenPaywall: () => void;
   /** lets GuidedAnnotations measure the real credits element to point its arrow at */
   creditsRef?: RefObject<HTMLSpanElement | null>;
   /** docking target the whole-document composer pill animates into once onboarding latches */
@@ -33,6 +34,7 @@ export default function TopBar({
   onSignOut,
   onOpenSettings,
   onOpenSignUp,
+  onOpenPaywall,
   creditsRef,
   headerSlotRef,
 }: TopBarProps) {
@@ -108,20 +110,32 @@ export default function TopBar({
               {lifetimeAccess ? "Guest · lifetime access" : `Guest · ${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`}
             </span>
 
-            <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-3 opacity-0 shadow-lg transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
-              <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
-              {lifetimeAccess ? (
-                <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                  You have lifetime access — every generation runs at full quality, uncapped.
-                </p>
-              ) : (
-                <>
+            {/* pt-2 (not mt-2) keeps the gap above the card inside the hoverable
+                box, so crossing it doesn't drop pointer-events before the
+                cursor reaches the button below */}
+            <div className="pointer-events-none absolute right-0 top-full z-50 w-64 pt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+              <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-3 shadow-lg">
+                <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
+                {lifetimeAccess ? (
                   <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                    Every AI generation — writing an outline, rewriting the whole document, or a quick edit on a
-                    selection — uses 1 credit. Guests get {FREE_GENERATIONS_LIMIT} free, no card required.
+                    You have lifetime access — every generation runs at full quality, uncapped.
                   </p>
-                </>
-              )}
+                ) : (
+                  <>
+                    <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
+                      Every AI generation — writing an outline, rewriting the whole document, or a quick edit on a
+                      selection — uses 1 credit. Guests get {FREE_GENERATIONS_LIMIT} free, no card required.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={onOpenPaywall}
+                      className="mt-2.5 w-full rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-sans text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+                    >
+                      Upgrade for unlimited generations
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         ) : (

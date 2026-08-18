@@ -61,6 +61,8 @@ type DocumentPanelProps = {
   centerSlotRef: RefObject<HTMLDivElement | null>;
   /** shared one-shot guard with DocumentComposer so onboarding can't fire twice (Enter-in-editor vs. the composer's own submit) */
   outlineFiredRef: RefObject<boolean>;
+  /** landing-page example chips — fires the same one-shot onboarding outline the composer's own submit does */
+  onSelectExample: (topic: string) => void;
 };
 
 type Rect = { top: number; left: number; width: number; height: number };
@@ -94,6 +96,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     lifetimeAccess,
     centerSlotRef,
     outlineFiredRef,
+    onSelectExample,
   },
   ref
 ) {
@@ -269,6 +272,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
             creditsRemaining={creditsRemaining}
             lifetimeAccess={lifetimeAccess}
             centerSlotRef={centerSlotRef}
+            onSelectExample={onSelectExample}
           />
         )}
 

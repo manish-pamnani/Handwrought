@@ -26,6 +26,10 @@ const QUICK_ACTIONS = [
   { label: "Shorten", instruction: "Make the selected text more concise without losing the key meaning." },
   { label: "Expand", instruction: "Expand the selected text with more detail." },
   { label: "Fix Grammar", instruction: "Fix any grammar and spelling mistakes in the selected text." },
+  {
+    label: "Translate to Hindi",
+    instruction: "Translate the selected text into Hindi, preserving its meaning and tone as closely as possible.",
+  },
 ];
 
 export default function SelectionToolbar({ top, left, containerWidth, disabled, onAction }: SelectionToolbarProps) {

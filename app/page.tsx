@@ -302,16 +302,20 @@ function Home() {
   // becomes a reusable whole-document instruction box: each submit just goes
   // straight through handleSend with the full document as context, the same
   // path SelectionToolbar's per-selection quick actions use.
+  function startOnboardingOutline(topic: string) {
+    if (outlineFiredRef.current || pendingSuggestion) return;
+    outlineFiredRef.current = true;
+    setHasStartedWriting(true);
+    setWelcomeTopic("");
+    handleOutlineEnter(topic);
+  }
+
   async function handleComposerSubmit() {
     const value = welcomeTopic.trim();
     if (!value) return;
 
     if (!hasStartedWriting) {
-      if (outlineFiredRef.current || pendingSuggestion) return;
-      outlineFiredRef.current = true;
-      setHasStartedWriting(true);
-      setWelcomeTopic("");
-      handleOutlineEnter(value);
+      startOnboardingOutline(value);
       return;
     }
 
@@ -323,6 +327,14 @@ function Home() {
     } else {
       setComposerError("Something went wrong — try again.");
     }
+  }
+
+  // Landing-page example chips (WelcomeOverlay) — only meaningful before
+  // onboarding has latched, same guard startOnboardingOutline already
+  // enforces via outlineFiredRef/pendingSuggestion.
+  function handleSelectExample(topic: string) {
+    if (hasStartedWriting) return;
+    startOnboardingOutline(topic);
   }
 
   function handleAccept() {
@@ -372,6 +384,7 @@ function Home() {
         onSignOut={() => signOutUser()}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSignUp={() => setSignUpOpen(true)}
+        onOpenPaywall={() => setPaywallOpen(true)}
         creditsRef={creditsRef}
         headerSlotRef={headerSlotRef}
       />
@@ -396,6 +409,7 @@ function Home() {
           lifetimeAccess={access.lifetimeAccess}
           centerSlotRef={centerSlotRef}
           outlineFiredRef={outlineFiredRef}
+          onSelectExample={handleSelectExample}
         />
       </main>
 
