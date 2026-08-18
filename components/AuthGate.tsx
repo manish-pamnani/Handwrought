@@ -2,6 +2,7 @@
 
 import { useEffect, type ReactNode } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import RefreshLoader from "@/components/RefreshLoader";
 
 // Guarantees a Firebase user exists before rendering children — but unlike a
 // classic auth wall, an anonymous guest counts. Real sign-in/sign-up now
@@ -16,11 +17,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
   }, [loading, user, signInGuest]);
 
   if (loading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center font-sans text-sm text-[var(--color-ink-muted)]">
-        Loading…
-      </div>
-    );
+    return <RefreshLoader />;
   }
 
   return <>{children}</>;

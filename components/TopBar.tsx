@@ -76,7 +76,7 @@ export default function TopBar({
 
       <div className="flex items-center gap-4">
         <span className="font-mono text-xs tracking-wide text-[var(--color-ink-muted)]">
-          {wordCount} {wordCount === 1 ? "word" : "words"}
+          {wordCount} {wordCount === 1 ? "word" : "words"} · {documentText.length} {documentText.length === 1 ? "character" : "characters"}
         </span>
         <button
           onClick={handleCopy}
@@ -99,26 +99,12 @@ export default function TopBar({
             >
               {lifetimeAccess ? "Guest · lifetime access" : `Guest · ${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`}
             </span>
-            {/* <button
-              onClick={onOpenSignUp}
-              className={`rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] ${
-                !lifetimeAccess && creditsRemaining <= 0 ? "animate-signup-pulse" : ""
-              }`}
-            >
-              Sign up to save
-            </button> */}
           </>
         ) : (
           <span className="max-w-[160px] truncate font-mono text-xs text-[var(--color-ink-muted)]" title={userEmail ?? undefined}>
             {userEmail}
           </span>
         )}
-        {/* <button
-          onClick={onOpenSettings}
-          className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
-        >
-          Settings
-        </button> */}
         {!isGuest && (
           <button
             onClick={onSignOut}

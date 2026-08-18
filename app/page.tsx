@@ -6,6 +6,7 @@ import TopBar from "@/components/TopBar";
 import DocumentPanel, { type DocumentPanelHandle } from "@/components/DocumentPanel";
 import GuidedAnnotations from "@/components/GuidedAnnotations";
 import AuthGate from "@/components/AuthGate";
+import RefreshLoader from "@/components/RefreshLoader";
 import SettingsModal from "@/components/SettingsModal";
 import GenerateModal from "@/components/GenerateModal";
 import PaywallModal from "@/components/PaywallModal";
@@ -272,6 +273,14 @@ function Home() {
     setApiKeyState(null);
   }
 
+  // Wait for the credits fetch and the localStorage read to both finish
+  // before painting anything — otherwise the guest UI briefly renders with
+  // defaulted/fallback values (e.g. "5 tries left" before the real count
+  // loads, or the welcome card before we know there's already a saved
+  // document) and then visibly corrects itself a moment later.
+  if (access.state === "loading" || !hydrated) {
+    return <RefreshLoader />;
+  }
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
