@@ -11,6 +11,7 @@ import RefreshLoader from "@/components/RefreshLoader";
 import SettingsModal from "@/components/SettingsModal";
 import GenerateModal from "@/components/GenerateModal";
 import PaywallModal from "@/components/PaywallModal";
+import ImportModal from "@/components/ImportModal";
 import AuthForm from "@/components/AuthForm";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/lib/AuthContext";
@@ -67,6 +68,7 @@ function Home() {
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [degradedAccepted, setDegradedAccepted] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [welcomeTopic, setWelcomeTopic] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -337,6 +339,15 @@ function Home() {
     startOnboardingOutline(topic);
   }
 
+  // ImportModal hands back already-parsed markdown — no AI call involved, so
+  // it skips handleOutlineEnter/outlineFiredRef entirely and goes straight
+  // into the document, same as an accepted suggestion would.
+  function handleImportComplete(markdown: string) {
+    setDocumentText(markdown);
+    setHasStartedWriting(true);
+    setImportOpen(false);
+  }
+
   function handleAccept() {
     setPendingSuggestion(null);
   }
@@ -410,6 +421,7 @@ function Home() {
           centerSlotRef={centerSlotRef}
           outlineFiredRef={outlineFiredRef}
           onSelectExample={handleSelectExample}
+          onOpenImport={() => setImportOpen(true)}
         />
       </main>
 
@@ -468,6 +480,16 @@ function Home() {
           setGenerateOpen(false);
           setSettingsOpen(true);
         }}
+      />
+
+      <ImportModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onImport={handleImportComplete}
+        apiKey={apiKey}
+        acceptDegraded={degradedAccepted}
+        onCreditsRemaining={access.setCreditsRemaining}
+        onCreditsExhausted={() => setPaywallOpen(true)}
       />
 
       <PaywallModal

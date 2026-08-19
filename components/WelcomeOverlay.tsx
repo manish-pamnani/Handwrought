@@ -11,6 +11,8 @@ type WelcomeOverlayProps = {
   centerSlotRef: RefObject<HTMLDivElement | null>;
   /** fires the same one-shot onboarding outline the composer's own submit does, with a canned topic */
   onSelectExample: (topic: string) => void;
+  /** opens ImportModal — the alternate "bring your own doc" entry point */
+  onOpenImport: () => void;
 };
 
 // Landing-page-only shortcuts: skip typing entirely and kick off the same
@@ -41,6 +43,7 @@ export default function WelcomeOverlay({
   lifetimeAccess,
   centerSlotRef,
   onSelectExample,
+  onOpenImport,
 }: WelcomeOverlayProps) {
   return (
     <div
@@ -73,6 +76,17 @@ export default function WelcomeOverlay({
             {example.label}
           </button>
         ))}
+      </div>
+
+      <div className="pointer-events-auto mt-4 flex items-center gap-1.5 font-sans text-xs text-[var(--color-ink-muted)]">
+        <span>or</span>
+        <button
+          type="button"
+          onClick={onOpenImport}
+          className="font-medium text-[var(--color-accent)] underline decoration-[var(--color-accent)]/40 underline-offset-2 transition-colors hover:text-[var(--color-accent-hover)] hover:decoration-[var(--color-accent-hover)]"
+        >
+          import a document
+        </button>
       </div>
 
       <p className="mt-3 font-mono text-[11px] text-[var(--color-ink-muted)]">

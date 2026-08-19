@@ -124,7 +124,8 @@ export default function TopBar({
                   <>
                     <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
                       Every AI generation — writing an outline, rewriting the whole document, or a quick edit on a
-                      selection — uses 1 credit. Guests get {FREE_GENERATIONS_LIMIT} free, no card required.
+                      selection — uses 1 credit. Importing a PDF or Word doc also uses 1 credit (.txt/.md imports are
+                      free). Guests get {FREE_GENERATIONS_LIMIT} free, no card required.
                     </p>
                     <button
                       type="button"

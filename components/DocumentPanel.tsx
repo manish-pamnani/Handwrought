@@ -63,6 +63,8 @@ type DocumentPanelProps = {
   outlineFiredRef: RefObject<boolean>;
   /** landing-page example chips — fires the same one-shot onboarding outline the composer's own submit does */
   onSelectExample: (topic: string) => void;
+  /** landing-page "Import a document" button — opens ImportModal */
+  onOpenImport: () => void;
 };
 
 type Rect = { top: number; left: number; width: number; height: number };
@@ -97,6 +99,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     centerSlotRef,
     outlineFiredRef,
     onSelectExample,
+    onOpenImport,
   },
   ref
 ) {
@@ -273,6 +276,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
             lifetimeAccess={lifetimeAccess}
             centerSlotRef={centerSlotRef}
             onSelectExample={onSelectExample}
+            onOpenImport={onOpenImport}
           />
         )}
 
