@@ -182,7 +182,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
   const editor = useEditor({
     extensions: EDITOR_EXTENSIONS,
     content: documentText,
-    editable: !pendingSuggestion,
+    editable: !pendingSuggestion && outlineStatus !== "drafting",
     immediatelyRender: false,
     editorProps: {
       handleKeyDown(view, event) {
@@ -223,8 +223,8 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
   }, [documentText, editor]);
 
   useEffect(() => {
-    editor?.setEditable(!pendingSuggestion);
-  }, [pendingSuggestion, editor]);
+    editor?.setEditable(!pendingSuggestion && outlineStatus !== "drafting");
+  }, [pendingSuggestion, outlineStatus, editor]);
 
   function handleAccept() {
     if (!editor || !pendingSuggestion) return;

@@ -117,20 +117,19 @@ function Home() {
     }
   }, [documentText, messages, hydrated, storageKey]);
 
-  // Docks the composer pill into the header once there's nothing left for it
-  // to wait on: either onboarding ended without ever starting a generation
-  // (a plain editor focus, or a returning user with an existing document —
-  // outlineFiredRef.current is still false in both cases), or the one-shot
-  // outline it kicked off has actually finished (success or failure).
-  // Gating on outlineFiredRef + outlineStatus, rather than just
-  // hasStartedWriting, is what keeps the pill parked in place while
-  // "drafting your article…" is showing instead of flying off mid-generation.
-  useEffect(() => {
-    if (!hasStartedWriting || composerDocked) return;
-    if (!outlineFiredRef.current || outlineStatus !== "drafting") {
-      setComposerDocked(true);
-    }
-  }, [hasStartedWriting, outlineStatus, composerDocked]);
+  // Docks the composer pill into the header as soon as onboarding has
+  // latched — a plain editor focus has nothing to wait on, and kicking off
+  // the one-shot outline generation should dock right away too, so
+  // "drafting your article…" reads in its header-docked spot with the
+  // (now-disabled) editor beneath it, rather than the pill sitting parked
+  // in the center until the draft actually lands. Adjusting state during
+  // render on a hasStartedWriting transition, rather than in an effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect.
+  const [prevHasStartedWriting, setPrevHasStartedWriting] = useState(hasStartedWriting);
+  if (hasStartedWriting !== prevHasStartedWriting) {
+    setPrevHasStartedWriting(hasStartedWriting);
+    if (hasStartedWriting) setComposerDocked(true);
+  }
 
   /** `wholeDocument` is for the header composer's whole-document instructions
    *  (e.g. "fix grammar throughout") — it tells the model the entire
