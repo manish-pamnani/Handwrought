@@ -54,7 +54,7 @@ export default function WelcomeOverlay({
       <div className="flex items-center gap-2.5">
         <Image src="/handwrought-icon.svg" alt="" width={30} height={30} />
         <span className="font-serif text-2xl font-semibold tracking-tight text-[var(--color-accent)]">
-          handwrought
+          HandWrought
         </span>
       </div>
       <p className="mt-4 max-w-xs font-sans text-sm leading-relaxed text-[var(--color-ink-muted)]">

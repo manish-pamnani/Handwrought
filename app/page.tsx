@@ -306,6 +306,18 @@ function Home() {
   // path SelectionToolbar's per-selection quick actions use.
   function startOnboardingOutline(topic: string) {
     if (outlineFiredRef.current || pendingSuggestion) return;
+
+    // Gate here, before anything latches — hasStartedWriting/outlineFiredRef
+    // flipping first (then relying on handleOutlineEnter's own check) meant
+    // an out-of-credit guest lost the welcome screen (chips included) to a
+    // paywall with no generation behind it, and outlineFiredRef being latched
+    // left them permanently stuck even after dismissing the paywall — same
+    // credits_exhausted signal handleSend/handleOutlineEnter already use.
+    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
+      setPaywallOpen(true);
+      return;
+    }
+
     outlineFiredRef.current = true;
     setHasStartedWriting(true);
     setWelcomeTopic("");
