@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type RefObject } from "react";
+import Link from "next/link";
 import { EditorContent, useEditor, generateHTML, type Editor } from "@tiptap/react";
 import { findTable, TableMap } from "@tiptap/pm/tables";
 import { TextSelection } from "@tiptap/pm/state";
@@ -65,6 +66,9 @@ type DocumentPanelProps = {
   onSelectExample: (topic: string) => void;
   /** landing-page "Import a document" button — opens ImportModal */
   onOpenImport: () => void;
+  /** true right after a first-time article generation auto-commits — shows the "upgrade for a polished rewrite" nudge in place of Accept/Reject */
+  showPolishUpsell: boolean;
+  onDismissPolishUpsell: () => void;
 };
 
 type Rect = { top: number; left: number; width: number; height: number };
@@ -100,6 +104,8 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     outlineFiredRef,
     onSelectExample,
     onOpenImport,
+    showPolishUpsell,
+    onDismissPolishUpsell,
   },
   ref
 ) {
@@ -290,6 +296,28 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
             ) : (
               <span className="text-red-600">Couldn&apos;t write that draft — try again.</span>
             )}
+          </div>
+        )}
+
+        {showPolishUpsell && !pendingSuggestion && (
+          <div className="animate-suggestion-fade-in mb-3 flex items-center justify-between gap-3 rounded-lg border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] px-4 py-2.5 font-sans text-[13px] text-[var(--color-ink)]">
+            <span>Want better language and fact-checking? Upgrade for a polished rewrite.</span>
+            <span className="flex shrink-0 items-center gap-3">
+              <Link
+                href="/checkout"
+                className="rounded-full bg-[var(--color-accent)] px-3 py-1 font-sans text-xs font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+              >
+                Upgrade
+              </Link>
+              <button
+                type="button"
+                onClick={onDismissPolishUpsell}
+                aria-label="Dismiss"
+                className="font-sans text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)]"
+              >
+                ×
+              </button>
+            </span>
           </div>
         )}
 

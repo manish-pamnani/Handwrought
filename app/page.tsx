@@ -64,6 +64,7 @@ function Home() {
   const [hasStartedWriting, setHasStartedWriting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
+  const [showPolishUpsell, setShowPolishUpsell] = useState(false);
   const [degradedAccepted, setDegradedAccepted] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -135,7 +136,7 @@ function Home() {
    *  own rules) and forces the resulting suggestion's range to span the full
    *  document client-side, regardless of which mode comes back, so the
    *  review UI swaps in place instead of appending below the old draft. */
-  async function handleSend(text: string, opts?: { wholeDocument?: boolean }): Promise<boolean> {
+  async function handleSend(text: string, opts?: { wholeDocument?: boolean; autoAccept?: boolean }): Promise<boolean> {
     if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
       setPaywallOpen(true);
       return false;
@@ -224,18 +225,28 @@ function Home() {
           content += " (Nothing was selected, so I added this to the end instead.)";
         }
 
-        setMessages((m) => [...m, { id: assistantId, role: "assistant", content, suggestionMode: mode }]);
-        setPendingSuggestion({
-          messageId: assistantId,
-          mode,
-          text: data.suggestion.options[0],
-          options: data.suggestion.options,
-          optionIndex: 0,
-          rangeStart,
-          rangeEnd,
-          fellBackToAppend,
-          wholeDocument: !!opts?.wholeDocument,
-        });
+        if (opts?.autoAccept) {
+          // First-time article generation: commit straight to the document,
+          // no Accept/Reject — the credit is already spent either way, so
+          // making users reject a full draft just wastes it for nothing.
+          // The upsell nudge is the escape valve instead.
+          editor?.chain().insertContentAt({ from: rangeStart, to: rangeEnd }, data.suggestion.options[0]).focus().run();
+          setMessages((m) => [...m, { id: assistantId, role: "assistant", content, suggestionMode: mode }]);
+          setShowPolishUpsell(true);
+        } else {
+          setMessages((m) => [...m, { id: assistantId, role: "assistant", content, suggestionMode: mode }]);
+          setPendingSuggestion({
+            messageId: assistantId,
+            mode,
+            text: data.suggestion.options[0],
+            options: data.suggestion.options,
+            optionIndex: 0,
+            rangeStart,
+            rangeEnd,
+            fellBackToAppend,
+            wholeDocument: !!opts?.wholeDocument,
+          });
+        }
       } else {
         setMessages((m) => [...m, { id: makeId(), role: "assistant", content: data.comment }]);
       }
@@ -261,17 +272,8 @@ function Home() {
       setOutlineStatus("drafting");
       await new Promise((resolve) => setTimeout(resolve, 500)); // mimic real latency for the status line
       const text = generateMockOutline(topic);
-      setPendingSuggestion({
-        messageId: makeId(),
-        mode: "append",
-        text,
-        options: [text],
-        optionIndex: 0,
-        rangeStart: 0,
-        rangeEnd: 0,
-        fellBackToAppend: false,
-        wholeDocument: false,
-      });
+      setDocumentText(text);
+      setShowPolishUpsell(true);
       setOutlineStatus("idle");
       return;
     }
@@ -284,7 +286,7 @@ function Home() {
       return;
     }
     setOutlineStatus("drafting");
-    const ok = await handleSend(buildArticleInstruction(topic));
+    const ok = await handleSend(buildArticleInstruction(topic), { autoAccept: true });
     setOutlineStatus(ok ? "idle" : "error");
   }
 
@@ -431,6 +433,8 @@ function Home() {
           outlineFiredRef={outlineFiredRef}
           onSelectExample={handleSelectExample}
           onOpenImport={() => setImportOpen(true)}
+          showPolishUpsell={showPolishUpsell}
+          onDismissPolishUpsell={() => setShowPolishUpsell(false)}
         />
       </main>
 
