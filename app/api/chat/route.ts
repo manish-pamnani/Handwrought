@@ -40,7 +40,12 @@ function buildContextPrompt(
 ): string {
   let selectionNote: string;
   if (selectedText !== null) {
-    selectionNote = `The user currently has this selected:\n"""\n${selectedText}\n"""`;
+    selectionNote =
+      `The user currently has this selected:\n"""\n${selectedText}\n"""\n` +
+      `This is a REPLACE_SELECTION request: base your replacement on this ` +
+      `selected text and the user's instruction only. The full document ` +
+      `below is background context for tone/voice/facts consistency — do ` +
+      `not draw new content from it into the replacement.`;
   } else {
     selectionNote =
       `The user has no active selection.\n` +
@@ -50,7 +55,7 @@ function buildContextPrompt(
         : "There is nothing after the cursor — it's at the end of the document.") +
       `\nWhen using INSERT_AT_CURSOR, continue naturally from the text immediately before the cursor (e.g. finish an incomplete sentence or thought) and flow into whatever comes after it, if anything.`;
   }
-  return `${SYSTEM_PROMPT}\n\nCurrent full document:\n"""\n${document}\n"""\n\n${selectionNote}`;
+  return `${SYSTEM_PROMPT}\n\nCurrent full document (background context only):\n"""\n${document}\n"""\n\n${selectionNote}`;
 }
 
 async function callGemini(

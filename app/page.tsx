@@ -9,7 +9,6 @@ import GuidedAnnotations from "@/components/GuidedAnnotations";
 import AuthGate from "@/components/AuthGate";
 import RefreshLoader from "@/components/RefreshLoader";
 import SettingsModal from "@/components/SettingsModal";
-import GenerateModal from "@/components/GenerateModal";
 import PaywallModal from "@/components/PaywallModal";
 import ImportModal from "@/components/ImportModal";
 import AuthForm from "@/components/AuthForm";
@@ -64,7 +63,6 @@ function Home() {
   const [hydrated, setHydrated] = useState(false);
   const [hasStartedWriting, setHasStartedWriting] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [generateOpen, setGenerateOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [degradedAccepted, setDegradedAccepted] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
@@ -447,16 +445,6 @@ function Home() {
         error={composerError}
       />
 
-      {/* {!pendingSuggestion && (
-        <button
-          type="button"
-          onClick={() => setGenerateOpen(true)}
-          className="fixed bottom-6 right-6 z-40 flex h-12 items-center gap-2 rounded-full bg-[var(--color-accent)] px-5 font-sans text-sm font-semibold text-white shadow-lg transition-colors hover:bg-[var(--color-accent-hover)]"
-        >
-          Ask AI to write
-        </button>
-      )} */}
-
       <GuidedAnnotations active={!hasStartedWriting} toolbarRef={toolbarRowRef} creditsRef={creditsRef} />
 
       {/* Fixed and out of the editor's own document flow on purpose — this
@@ -476,22 +464,6 @@ function Home() {
           Contact
         </Link>
       </nav>
-
-      <GenerateModal
-        open={generateOpen && hydrated}
-        onClose={() => setGenerateOpen(false)}
-        onGenerate={(text) => {
-          handleSend(text);
-        }}
-        isThinking={isThinking}
-        hasApiKey={!!apiKey}
-        lifetimeAccess={access.lifetimeAccess}
-        creditsRemaining={access.creditsRemaining}
-        onOpenSettings={() => {
-          setGenerateOpen(false);
-          setSettingsOpen(true);
-        }}
-      />
 
       <ImportModal
         open={importOpen}

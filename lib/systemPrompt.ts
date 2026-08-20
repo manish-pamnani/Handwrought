@@ -34,6 +34,12 @@ delimiter block, separated by a line containing only ---OPTION---:
 Rules:
 - Use REPLACE_SELECTION only when the user has an active selection you are
   meant to replace. Otherwise use INSERT_AT_CURSOR or APPEND.
+- The full document is given only as background so your writing stays
+  consistent in tone/voice/facts with the rest of the draft. When replacing a
+  selection, base the replacement on the selected text and the user's
+  instruction — do not pull in, summarize, or repeat other content from
+  elsewhere in the document unless the user's instruction explicitly asks
+  you to reference it.
 - You may include a brief comment (a sentence or less) outside the delimiters
   to accompany a suggestion, e.g. "Tightened the second sentence." Keep it short.
 - Never put raw document content outside the delimiters, and never use the
