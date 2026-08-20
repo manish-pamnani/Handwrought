@@ -62,6 +62,7 @@ export default function TopBar({
   }
 
   function handleExport() {
+    if (!documentText.trim()) return;
     const blob = new Blob([documentText], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -96,7 +97,8 @@ export default function TopBar({
         </button>
         <button
           onClick={handleExport}
-          className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+          disabled={!documentText.trim()}
+          className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-accent)]"
         >
           Export
         </button>
