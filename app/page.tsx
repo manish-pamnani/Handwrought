@@ -18,6 +18,7 @@ import { useAccess } from "@/lib/useAccess";
 import { getApiKey, setApiKey, clearApiKey } from "@/lib/apiKeyStorage";
 import { buildArticleInstruction } from "@/lib/outlinePrompt";
 import { generateMockOutline } from "@/lib/mockOutline";
+import { trackFirstOutlineGenerated, trackSuggestionReviewed, trackPaywallShown } from "@/lib/analytics";
 import type { ChatApiResponse, ChatApiError, ChatMessage, Suggestion, SuggestionMode } from "@/lib/types";
 
 const CURSOR_CONTEXT_CHARS = 200;
@@ -135,9 +136,20 @@ function Home() {
    *  own rules) and forces the resulting suggestion's range to span the full
    *  document client-side, regardless of which mode comes back, so the
    *  review UI swaps in place instead of appending below the old draft. */
+  // Centralizes every credits-exhausted → paywall trigger (handleSend's
+  // pre-flight and mid-stream checks, the outline entry points, ImportModal)
+  // so the paywall_shown event fires exactly once per real exhaustion,
+  // regardless of which path hit it. TopBar's manual "Upgrade" link opens
+  // the paywall directly via setPaywallOpen and intentionally skips this —
+  // that's a voluntary view, not an exhaustion signal.
+  function openPaywallFromExhaustion() {
+    setPaywallOpen(true);
+    trackPaywallShown("credits_exhausted");
+  }
+
   async function handleSend(text: string, opts?: { wholeDocument?: boolean; autoAccept?: boolean }): Promise<boolean> {
     if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
-      setPaywallOpen(true);
+      openPaywallFromExhaustion();
       return false;
     }
 
@@ -180,7 +192,7 @@ function Home() {
       const data: ChatApiResponse | ChatApiError | null = await res.json().catch(() => null);
       if (!res.ok || !data || "error" in data) {
         if (data && "code" in data && data.code === "credits_exhausted") {
-          setPaywallOpen(true);
+          openPaywallFromExhaustion();
           return false;
         }
         const msg = data && "error" in data ? data.error : "Sorry — I couldn't reach the writing assistant. Please try again.";
@@ -280,12 +292,13 @@ function Home() {
     // "drafting…"/error status entirely when we already know it'll just
     // bounce straight to the paywall, so the two don't show at once.
     if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
-      setPaywallOpen(true);
+      openPaywallFromExhaustion();
       return;
     }
     setOutlineStatus("drafting");
     const ok = await handleSend(buildArticleInstruction(topic), { autoAccept: true });
     setOutlineStatus(ok ? "idle" : "error");
+    if (ok) trackFirstOutlineGenerated();
   }
 
   function handleTopicChange(value: string) {
@@ -311,7 +324,7 @@ function Home() {
     // left them permanently stuck even after dismissing the paywall — same
     // credits_exhausted signal handleSend/handleOutlineEnter already use.
     if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
-      setPaywallOpen(true);
+      openPaywallFromExhaustion();
       return;
     }
 
@@ -359,10 +372,12 @@ function Home() {
 
   function handleAccept() {
     setPendingSuggestion(null);
+    trackSuggestionReviewed("accepted");
   }
 
   function handleReject() {
     setPendingSuggestion(null);
+    trackSuggestionReviewed("rejected");
   }
 
   function handleEditSuggestionText(text: string) {
@@ -473,7 +488,7 @@ function Home() {
         onImport={handleImportComplete}
         apiKey={apiKey}
         onCreditsRemaining={access.setCreditsRemaining}
-        onCreditsExhausted={() => setPaywallOpen(true)}
+        onCreditsExhausted={openPaywallFromExhaustion}
       />
 
       <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} />

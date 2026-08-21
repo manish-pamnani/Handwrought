@@ -12,6 +12,7 @@ import {
   type User,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
+import { trackSignupCompleted } from "@/lib/analytics";
 
 type AuthContextValue = {
   user: User | null;
@@ -45,9 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (auth.currentUser?.isAnonymous) {
       const credential = EmailAuthProvider.credential(email, password);
       await linkWithCredential(auth.currentUser, credential);
+      trackSignupCompleted("guest_upgrade");
       return;
     }
     await createUserWithEmailAndPassword(auth, email, password);
+    trackSignupCompleted("new_account");
   }
 
   async function signIn(email: string, password: string) {
