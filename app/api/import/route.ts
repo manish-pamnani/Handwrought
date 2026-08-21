@@ -3,7 +3,7 @@ import WordExtractor from "word-extractor";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 import { getUsage, incrementUsage } from "@/lib/serverCredits";
 import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
-import { STANDARD_MODEL, STANDARD_MODEL_FALLBACK, DEGRADED_MODEL } from "@/lib/geminiModels";
+import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
 
 export const runtime = "nodejs";
 
@@ -80,7 +80,7 @@ const TEXT_CLEANUP_PROMPT =
   "summarize, shorten, or invent anything. Output only the Markdown, nothing else, and don't " +
   "wrap your entire response in one outer code fence.";
 
-async function callGemini(apiKey: string, model: string, systemPrompt: string, userPart: object): Promise<string> {
+async function callGemini(apiKey: string, model: GeminiModel, systemPrompt: string, userPart: object): Promise<string> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -104,20 +104,6 @@ async function callGemini(apiKey: string, model: string, systemPrompt: string, u
   const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   if (!text) throw new Error("Gemini returned an empty response.");
   return text;
-}
-
-// Retries once, automatically, only on an overloaded/rate-limited standard
-// model — a different model has its own capacity pool, so this rides out
-// Google-side demand spikes without surfacing an error. Mirrors /api/chat.
-async function callWithFallback(call: (model: string) => Promise<string>, model: string): Promise<string> {
-  try {
-    return await call(model);
-  } catch (err) {
-    const status = (err as { status?: number }).status;
-    const isOverloaded = status !== undefined && [429, 502, 503].includes(status);
-    if (!isOverloaded || model !== STANDARD_MODEL) throw err;
-    return await call(STANDARD_MODEL_FALLBACK);
-  }
 }
 
 export async function POST(request: Request) {
@@ -174,17 +160,13 @@ export async function POST(request: Request) {
   // already knows how to handle.
   const userKeyRaw = formData?.get("apiKey");
   const userKey = typeof userKeyRaw === "string" && userKeyRaw.trim() ? userKeyRaw.trim() : null;
-  const acceptDegraded = formData?.get("acceptDegraded") === "true";
 
   let apiKey: string;
-  let model: string;
   let creditsRemaining: number | null = null;
-  let degraded = false;
   let shouldIncrementUsage = false;
 
   if (userKey) {
     apiKey = userKey;
-    model = STANDARD_MODEL;
   } else {
     const devFallback = process.env.NODE_ENV !== "production" ? process.env.GEMINI_API_KEY : undefined;
     const sharedKey = process.env.GEMINI_SHARED_API_KEY ?? devFallback ?? null;
@@ -198,13 +180,11 @@ export async function POST(request: Request) {
     const usage = await getUsage(uid);
     if (usage.lifetimeAccess) {
       apiKey = sharedKey;
-      model = STANDARD_MODEL;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
       apiKey = sharedKey;
-      model = STANDARD_MODEL;
       shouldIncrementUsage = true;
       creditsRemaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
-    } else if (!acceptDegraded) {
+    } else {
       return NextResponse.json(
         {
           error: "You've used your free generations.",
@@ -214,11 +194,6 @@ export async function POST(request: Request) {
         },
         { status: 402 }
       );
-    } else {
-      apiKey = sharedKey;
-      model = DEGRADED_MODEL;
-      degraded = true;
-      creditsRemaining = 0;
     }
   }
 
@@ -228,16 +203,12 @@ export async function POST(request: Request) {
       const extractor = new WordExtractor();
       const doc = await extractor.extract(buffer);
       const rawText = doc.getBody();
-      markdown = await callWithFallback(
-        (m) => callGemini(apiKey, m, TEXT_CLEANUP_PROMPT, { text: rawText }),
-        model
-      );
+      markdown = await callGeminiWithRotation((m) => callGemini(apiKey, m, TEXT_CLEANUP_PROMPT, { text: rawText }));
     } else {
       const mimeType = NATIVE_DOCUMENT_MIME[extension];
       const base64 = buffer.toString("base64");
-      markdown = await callWithFallback(
-        (m) => callGemini(apiKey, m, DOCUMENT_TO_MARKDOWN_PROMPT, { inline_data: { mime_type: mimeType, data: base64 } }),
-        model
+      markdown = await callGeminiWithRotation((m) =>
+        callGemini(apiKey, m, DOCUMENT_TO_MARKDOWN_PROMPT, { inline_data: { mime_type: mimeType, data: base64 } })
       );
     }
   } catch (err) {
@@ -257,5 +228,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ text: markdown.trim(), creditsRemaining, degraded });
+  return NextResponse.json({ text: markdown.trim(), creditsRemaining });
 }

@@ -13,11 +13,9 @@ type ImportModalProps = {
   onImport: (markdown: string) => void;
   /** BYOK Gemini key, only actually used server-side for the PDF branch (unlimited, full quality) */
   apiKey: string | null;
-  /** mirrors the paywall's "continue with lower quality" choice, so PDF import keeps working after it */
-  acceptDegraded: boolean;
   /** applies a creditsRemaining value the PDF branch already spent, no extra fetch (mirrors access.setCreditsRemaining) */
   onCreditsRemaining: (n: number) => void;
-  /** out-of-credit guest hit a PDF import with acceptDegraded still false — same signal handleSend's paywall check uses */
+  /** out-of-credit guest hit a PDF import — same signal handleSend's paywall check uses */
   onCreditsExhausted: () => void;
 };
 
@@ -28,7 +26,6 @@ export default function ImportModal({
   onClose,
   onImport,
   apiKey,
-  acceptDegraded,
   onCreditsRemaining,
   onCreditsExhausted,
 }: ImportModalProps) {
@@ -66,7 +63,6 @@ export default function ImportModal({
       const formData = new FormData();
       formData.append("file", file);
       if (apiKey) formData.append("apiKey", apiKey);
-      formData.append("acceptDegraded", String(acceptDegraded));
 
       const res = await fetch("/api/import", {
         method: "POST",

@@ -65,7 +65,6 @@ function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const [showPolishUpsell, setShowPolishUpsell] = useState(false);
-  const [degradedAccepted, setDegradedAccepted] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
@@ -137,7 +136,7 @@ function Home() {
    *  document client-side, regardless of which mode comes back, so the
    *  review UI swaps in place instead of appending below the old draft. */
   async function handleSend(text: string, opts?: { wholeDocument?: boolean; autoAccept?: boolean }): Promise<boolean> {
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
+    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
       setPaywallOpen(true);
       return false;
     }
@@ -176,7 +175,6 @@ function Home() {
           cursorContextBefore,
           cursorContextAfter,
           apiKey,
-          acceptDegraded: degradedAccepted,
         }),
       });
       const data: ChatApiResponse | ChatApiError | null = await res.json().catch(() => null);
@@ -281,7 +279,7 @@ function Home() {
     // Same pre-flight the paywall check inside handleSend does — skip the
     // "drafting…"/error status entirely when we already know it'll just
     // bounce straight to the paywall, so the two don't show at once.
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
+    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
       setPaywallOpen(true);
       return;
     }
@@ -312,7 +310,7 @@ function Home() {
     // paywall with no generation behind it, and outlineFiredRef being latched
     // left them permanently stuck even after dismissing the paywall — same
     // credits_exhausted signal handleSend/handleOutlineEnter already use.
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0 && !degradedAccepted) {
+    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
       setPaywallOpen(true);
       return;
     }
@@ -474,16 +472,11 @@ function Home() {
         onClose={() => setImportOpen(false)}
         onImport={handleImportComplete}
         apiKey={apiKey}
-        acceptDegraded={degradedAccepted}
         onCreditsRemaining={access.setCreditsRemaining}
         onCreditsExhausted={() => setPaywallOpen(true)}
       />
 
-      <PaywallModal
-        open={paywallOpen}
-        onClose={() => setPaywallOpen(false)}
-        onContinueFree={() => setDegradedAccepted(true)}
-      />
+      <PaywallModal open={paywallOpen} onClose={() => setPaywallOpen(false)} />
 
       <SettingsModal
         open={settingsOpen}

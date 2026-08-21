@@ -48,8 +48,6 @@ export type ChatApiResponse = {
   suggestion: { mode: SuggestionMode; options: string[] } | null;
   /** free generations left on the shared key; null when unlimited (BYOK or lifetime access) */
   creditsRemaining: number | null;
-  /** true if this response was generated with the cheaper fallback model */
-  degraded: boolean;
 };
 
 export type ChatApiError = {

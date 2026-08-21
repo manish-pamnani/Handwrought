@@ -4,7 +4,7 @@ import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 import { getUsage, incrementUsage } from "@/lib/serverCredits";
 import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
-import { STANDARD_MODEL, STANDARD_MODEL_FALLBACK, DEGRADED_MODEL } from "@/lib/geminiModels";
+import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
 import type { ChatMessage } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -28,8 +28,6 @@ type RequestBody = {
   cursorContextAfter: string;
   /** user-supplied Gemini API key (BYOK), read from client-side localStorage; null if not set */
   apiKey: string | null;
-  /** true once the user has explicitly chosen "continue with lower quality" in the upgrade popup */
-  acceptDegraded?: boolean;
 };
 
 function buildContextPrompt(
@@ -65,7 +63,7 @@ async function callGemini(
   cursorContextBefore: string,
   cursorContextAfter: string,
   apiKey: string,
-  model: string
+  model: GeminiModel
 ): Promise<string> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -126,16 +124,13 @@ export async function POST(req: Request) {
   const userKey = typeof body.apiKey === "string" && body.apiKey.trim() ? body.apiKey.trim() : null;
 
   let apiKey: string;
-  let model: string;
   let creditsRemaining: number | null = null;
-  let degraded = false;
   let shouldIncrementUsage = false;
   let keySource: string;
 
   if (userKey) {
     // BYOK — unlimited, full quality, runs against the user's own quota.
     apiKey = userKey;
-    model = STANDARD_MODEL;
     keySource = "byok";
   } else {
     // Local-dev-only convenience so the route can be exercised without a
@@ -153,13 +148,11 @@ export async function POST(req: Request) {
     const usage = await getUsage(uid);
     if (usage.lifetimeAccess) {
       apiKey = sharedKey;
-      model = STANDARD_MODEL;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
       apiKey = sharedKey;
-      model = STANDARD_MODEL;
       shouldIncrementUsage = true;
       creditsRemaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
-    } else if (!body.acceptDegraded) {
+    } else {
       return NextResponse.json(
         {
           error: "You've used your free generations.",
@@ -169,18 +162,12 @@ export async function POST(req: Request) {
         },
         { status: 402 }
       );
-    } else {
-      apiKey = sharedKey;
-      model = DEGRADED_MODEL;
-      degraded = true;
-      creditsRemaining = 0;
     }
   }
 
   try {
-    let raw: string;
-    try {
-      raw = await callGemini(
+    const raw = await callGeminiWithRotation((model) =>
+      callGemini(
         messages,
         document,
         selectedText ?? null,
@@ -188,21 +175,8 @@ export async function POST(req: Request) {
         cursorContextAfter ?? "",
         apiKey,
         model
-      );
-    } catch (err) {
-      const isOverloaded = err instanceof GeminiRequestError && [429, 502, 503].includes(err.status);
-      if (!isOverloaded || model !== STANDARD_MODEL) throw err;
-      console.warn(`${STANDARD_MODEL} unavailable (${(err as GeminiRequestError).status}), retrying with ${STANDARD_MODEL_FALLBACK}`);
-      raw = await callGemini(
-        messages,
-        document,
-        selectedText ?? null,
-        cursorContextBefore ?? "",
-        cursorContextAfter ?? "",
-        apiKey,
-        STANDARD_MODEL_FALLBACK
-      );
-    }
+      )
+    );
 
     if (shouldIncrementUsage) {
       const newCount = await incrementUsage(uid);
@@ -210,7 +184,7 @@ export async function POST(req: Request) {
     }
 
     const parsed = parseAssistantReply(raw);
-    const response = NextResponse.json({ ...parsed, creditsRemaining, degraded });
+    const response = NextResponse.json({ ...parsed, creditsRemaining });
     if (process.env.NODE_ENV !== "production") {
       response.headers.set("X-Gemini-Key-Source", keySource);
     }

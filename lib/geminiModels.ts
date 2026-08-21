@@ -1,14 +1,33 @@
 // Shared between /api/chat and /api/import (PDF branch) — keep both routes
 // pointed at the same models rather than letting them drift independently.
 
-// Full-quality tier: BYOK, lifetime access, or still-in-credit guests.
-// gemini-flash-latest has been overloaded/rate-limited more often lately, so
-// gemini-2.5-flash (a pinned version with its own capacity pool) is primary.
-export const STANDARD_MODEL = "gemini-3.5-flash-lite";
-// Tried once, automatically, only when STANDARD_MODEL itself is overloaded/
-// rate-limited (502/503/429) — a different model has its own capacity pool,
-// so this rides out Google-side demand spikes without surfacing an error.
-export const STANDARD_MODEL_FALLBACK = "gemini-2.5-flash";
-// Fallback tier once a guest's free generations run out and they choose to
-// keep going anyway ("continue with poor quality" in the upgrade popup).
-export const DEGRADED_MODEL = "gemini-2.5-flash";
+// Rotation order, tried on every request. Free-tier rate limits on any one
+// Gemini model are low enough that a burst of traffic can trip a 429 on its
+// own — rather than surfacing that to the user, we retry the same request
+// against the next model in this list, each of which has its own capacity
+// pool. Ordered cheapest/highest-quota first.
+export const GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemini-3.7-flash"] as const;
+
+export type GeminiModel = (typeof GEMINI_MODELS)[number];
+
+/**
+ * Calls `call` with each model in GEMINI_MODELS in order, moving to the next
+ * one only when the current model is overloaded/rate-limited (429/502/503).
+ * Any other error, or exhausting the list, propagates to the caller.
+ */
+export async function callGeminiWithRotation<T>(call: (model: GeminiModel) => Promise<T>): Promise<T> {
+  for (let i = 0; i < GEMINI_MODELS.length; i++) {
+    const model = GEMINI_MODELS[i];
+    try {
+      return await call(model);
+    } catch (err) {
+      const status = (err as { status?: number } | null)?.status;
+      const isOverloaded = status !== undefined && [429, 502, 503].includes(status);
+      const isLastModel = i === GEMINI_MODELS.length - 1;
+      if (!isOverloaded || isLastModel) throw err;
+      console.warn(`${model} unavailable (${status}), retrying with ${GEMINI_MODELS[i + 1]}`);
+    }
+  }
+  // Unreachable — GEMINI_MODELS is non-empty, so the loop always returns or throws.
+  throw new Error("No Gemini models configured.");
+}

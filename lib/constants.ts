@@ -12,7 +12,7 @@ export const LIFETIME_ACCESS_PRICE_ID =
 export const EARLY_BIRD_DISCOUNT_CODE = "EARLYBIRD50";
 
 // Free generations any guest gets against HandWrought's shared Gemini key
-// before being offered the degrade-vs-upgrade choice. See lib/serverCredits.ts.
+// before being asked to upgrade. See lib/serverCredits.ts.
 export const FREE_GENERATIONS_LIMIT = 5;
 
 // continue-sentence feature disabled, collides with Expand
