@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Privacy Policy — HandWrought" };
 export default function PrivacyPage() {
   return (
     <LegalPage title="Privacy Policy">
-      <p>Last updated: July 2026</p>
+      <p>Last updated: August 2026</p>
 
       <p>
         HandWrought is operated by Manish Pamnani (&quot;we&quot;, &quot;us&quot;). This page explains what data we
@@ -45,17 +45,28 @@ export default function PrivacyPage() {
         for how they handle payment data.
       </p>
 
+      <h2>Analytics</h2>
+      <p>
+        We use Google Analytics to understand how visitors use HandWrought (e.g. which pages are viewed, general
+        usage patterns). Google Analytics sets cookies in your browser and collects information such as your IP
+        address, device/browser type, and pages visited. See{" "}
+        <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer">
+          Google&apos;s Privacy Policy
+        </a>{" "}
+        for how Google handles this data.
+      </p>
+
       <h2>What we don&apos;t do</h2>
       <ul>
-        <li>No analytics or tracking scripts.</li>
-        <li>No cookies — Firebase Authentication keeps you signed in using your browser&apos;s local storage, not cookies.</li>
         <li>No selling or sharing your data with advertisers.</li>
+        <li>No tracking scripts beyond Google Analytics described above.</li>
       </ul>
 
       <h2>Third parties we rely on</h2>
       <ul>
         <li>Firebase (Google) — authentication and our account database (Firestore).</li>
         <li>Google Gemini API — powers AI editing features, using your own API key.</li>
+        <li>Google Analytics — usage analytics, described above.</li>
         <li>Paddle.com Market Limited — payment processing and billing, as merchant of record.</li>
         <li>Our hosting provider — serves the application; standard request logs (e.g. IP address) may be retained briefly for security and abuse prevention.</li>
       </ul>
