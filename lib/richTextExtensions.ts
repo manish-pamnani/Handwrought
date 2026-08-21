@@ -36,6 +36,10 @@ export const EDITOR_EXTENSIONS = [
     types: ["heading", "paragraph"],
     alignments: ["left", "center", "right"],
   }),
+  // Paste-your-own-draft discoverability is handled pre-click by
+  // GuidedAnnotations' third arrow instead — an in-editor placeholder can
+  // only ever confirm it after the fact, once the user has already clicked
+  // in blind.
   // Placeholder.configure({
   //   placeholder: "Start writing, or ask the assistant for a hand…",
   // }),

@@ -81,6 +81,10 @@ const MODE_LABEL: Record<Suggestion["mode"], string> = {
 
 const ICON_SIZE = 32;
 const CARET_GAP = 10;
+// Longest text the "type a topic, hit Enter" shortcut will treat as a topic
+// phrase rather than bailing out — well past any real topic, but far short
+// of a pasted-in draft.
+const TOPIC_SHORTCUT_MAX_CHARS = 300;
 
 const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(function DocumentPanel(
   {
@@ -194,8 +198,13 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
       handleKeyDown(view, event) {
         if (event.key !== "Enter" || event.shiftKey) return false;
         if (outlineFiredRef.current || pendingSuggestionRef.current) return false;
+        // This shortcut is only for "type a short topic, hit Enter to
+        // generate" — a pasted-in draft becomes multiple paragraph nodes (or
+        // is just long) the instant it lands, so bail rather than treat the
+        // user's own real content as a topic string and delete it.
+        if (view.state.doc.childCount > 1) return false;
         const topic = view.state.doc.textContent.trim();
-        if (!topic) return false;
+        if (!topic || topic.length > TOPIC_SHORTCUT_MAX_CHARS) return false;
         event.preventDefault();
         outlineFiredRef.current = true;
         view.dispatch(view.state.tr.delete(0, view.state.doc.content.size));
