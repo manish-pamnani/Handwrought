@@ -162,6 +162,12 @@ function Home() {
     let selectedText: string | null = null;
     let cursorContextBefore = "";
     let cursorContextAfter = "";
+    // Captured now, at send time, and reused when applying the response —
+    // the selection can change while the request is in flight (the user
+    // clicks elsewhere, types into the quick-edit freeform box, etc.), so
+    // re-reading editor.state.selection after the await would risk applying
+    // the replacement to the wrong (or a stale/collapsed) range.
+    let capturedSelectionRange: { from: number; to: number } | null = null;
     if (opts?.wholeDocument) {
       selectedText = documentText;
     } else if (editor) {
@@ -169,6 +175,7 @@ function Home() {
       const docSize = editor.state.doc.content.size;
       if (to > from) {
         selectedText = editor.state.doc.textBetween(from, to, "\n");
+        capturedSelectionRange = { from, to };
       } else {
         cursorContextBefore = editor.state.doc.textBetween(Math.max(0, from - CURSOR_CONTEXT_CHARS), from, "\n");
         cursorContextAfter = editor.state.doc.textBetween(to, Math.min(docSize, to + CURSOR_CONTEXT_CHARS), "\n");
@@ -218,15 +225,12 @@ function Home() {
           rangeStart = rangeEnd = docSize;
         } else if (mode === "insert_at_cursor") {
           rangeStart = rangeEnd = editor?.state.selection.to ?? docSize;
+        } else if (capturedSelectionRange) {
+          rangeStart = capturedSelectionRange.from;
+          rangeEnd = capturedSelectionRange.to;
         } else {
-          const sel = editor?.state.selection;
-          if (sel && sel.to > sel.from) {
-            rangeStart = sel.from;
-            rangeEnd = sel.to;
-          } else {
-            rangeStart = rangeEnd = docSize;
-            fellBackToAppend = true;
-          }
+          rangeStart = rangeEnd = docSize;
+          fellBackToAppend = true;
         }
 
         const assistantId = makeId();

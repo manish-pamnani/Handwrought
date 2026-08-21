@@ -65,6 +65,25 @@ async function callGemini(
   apiKey: string,
   model: GeminiModel
 ): Promise<string> {
+  // The system instruction carries the full document for tone/voice context,
+  // which on smaller models can dilute or outweigh the (comparatively tiny)
+  // selection note also living in that same block — the model ends up
+  // treating the whole document as fair game instead of just the selection.
+  // Re-anchoring the selection directly in the last user turn puts it where
+  // the model's next-token generation is most influenced, instead of relying
+  // solely on system-level instructions to compete with a full document dump.
+  const contents = messages.map((m, i) => {
+    const isLastUserTurn = i === messages.length - 1 && m.role === "user";
+    const text =
+      isLastUserTurn && selectedText !== null
+        ? `Selected text (replace ONLY this — do not rewrite or restructure any other part of the document):\n"""\n${selectedText}\n"""\n\nInstruction: ${m.content}`
+        : m.content;
+    return {
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text }],
+    };
+  });
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -74,10 +93,7 @@ async function callGemini(
         system_instruction: {
           parts: [{ text: buildContextPrompt(document, selectedText, cursorContextBefore, cursorContextAfter) }],
         },
-        contents: messages.map((m) => ({
-          role: m.role === "assistant" ? "model" : "user",
-          parts: [{ text: m.content }],
-        })),
+        contents,
       }),
     }
   );
@@ -166,8 +182,14 @@ export async function POST(req: Request) {
   }
 
   try {
-    const raw = await callGeminiWithRotation((model) =>
-      callGemini(
+    // Captured via closure since callGeminiWithRotation only hands the model
+    // to the call it's about to make — this is reassigned on every retry, so
+    // once callGeminiWithRotation resolves it holds whichever model actually
+    // served the winning attempt (calls are sequential, never concurrent).
+    let usedModel: GeminiModel | null = null;
+    const raw = await callGeminiWithRotation((model) => {
+      usedModel = model;
+      return callGemini(
         messages,
         document,
         selectedText ?? null,
@@ -175,8 +197,8 @@ export async function POST(req: Request) {
         cursorContextAfter ?? "",
         apiKey,
         model
-      )
-    );
+      );
+    });
 
     if (shouldIncrementUsage) {
       const newCount = await incrementUsage(uid);
@@ -184,6 +206,53 @@ export async function POST(req: Request) {
     }
 
     const parsed = parseAssistantReply(raw);
+
+    console.log(
+      JSON.stringify({
+        event: "chat_completion",
+        uid,
+        model: usedModel,
+        keySource,
+        hasSelection: selectedText !== null,
+        selectionChars: selectedText?.length ?? 0,
+        documentChars: document.length,
+        suggestionMode: parsed.suggestion?.mode ?? null,
+      })
+    );
+
+    // Tripwire for the "selection edit drifted into a whole-document rewrite"
+    // failure mode: a real replace_selection reply should be roughly the
+    // size of the selection and never introduce a heading the selection
+    // didn't have. Flags it without blocking the response, so we get a
+    // model/ratio/preview to grep for in logs instead of relying on user
+    // screenshots to diagnose it after the fact.
+    if (parsed.suggestion?.mode === "replace_selection" && selectedText !== null) {
+      const HEADING_RE = /^#{1,6}\s/m;
+      const LENGTH_RATIO_THRESHOLD = 3;
+      const selectionHasHeading = HEADING_RE.test(selectedText);
+
+      parsed.suggestion.options.forEach((option, optionIndex) => {
+        const lengthRatio = selectedText.length > 0 ? option.length / selectedText.length : Infinity;
+        const introducedHeading = HEADING_RE.test(option) && !selectionHasHeading;
+        if (introducedHeading || lengthRatio > LENGTH_RATIO_THRESHOLD) {
+          console.warn(
+            JSON.stringify({
+              event: "replace_selection_anomaly",
+              uid,
+              model: usedModel,
+              optionIndex,
+              selectionChars: selectedText.length,
+              optionChars: option.length,
+              lengthRatio: Number.isFinite(lengthRatio) ? Number(lengthRatio.toFixed(2)) : null,
+              introducedHeading,
+              selectionPreview: selectedText.slice(0, 120),
+              optionPreview: option.slice(0, 120),
+            })
+          );
+        }
+      });
+    }
+
     const response = NextResponse.json({ ...parsed, creditsRemaining });
     if (process.env.NODE_ENV !== "production") {
       response.headers.set("X-Gemini-Key-Source", keySource);
