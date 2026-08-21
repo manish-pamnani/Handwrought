@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebaseAdmin";
+import { sendWaitlistConfirmation } from "@/lib/resend";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,14 @@ export async function POST(request: Request) {
   const existing = await ref.get();
   if (!existing.exists) {
     await ref.set({ email, createdAt: new Date().toISOString() });
+    // Best-effort — a Resend outage or missing API key shouldn't fail the
+    // waitlist signup itself, since the Firestore write (the thing that
+    // actually matters) already succeeded.
+    try {
+      await sendWaitlistConfirmation(email);
+    } catch (err) {
+      console.error("waitlist confirmation email failed", err);
+    }
   }
 
   return NextResponse.json({ ok: true });
