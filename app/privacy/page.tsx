@@ -17,7 +17,8 @@ export default function PrivacyPage() {
       <p>
         We use Firebase Authentication (Google) to manage sign-up and sign-in. We store your email address and an
         authentication record; we never see or store your password directly (Firebase handles that). We also store,
-        against your account, whether you&apos;ve purchased lifetime access and the associated transaction ID.
+        against your account, your remaining AI generation credits and, if you&apos;ve purchased Lifetime Access,
+        your credit tier and the associated Paddle transaction ID.
       </p>
 
       <h2>Your documents</h2>
@@ -28,10 +29,11 @@ export default function PrivacyPage() {
 
       <h2>AI features (Gemini API key and content)</h2>
       <p>
-        HandWrought is bring-your-own-key: you supply your own Google Gemini API key, stored only in your browser.
-        When you use an AI editing action, your API key and the relevant document text are sent to our server, which
-        forwards the request to Google&apos;s Gemini API and returns the response — this happens in transit only; we
-        don&apos;t log or persist your API key or document content server-side.
+        By default, AI editing actions run against a shared Google Gemini API key that we provide: the relevant
+        document text is sent to our server, forwarded to Google&apos;s Gemini API using our key, and the response
+        is returned to your browser — this happens in transit only; we don&apos;t log or persist your document
+        content server-side. If you supply your own Google Gemini API key in Settings instead, it&apos;s stored only
+        in your browser and sent to our server the same way, in transit only, never stored.
       </p>
 
       <h2>Payments</h2>
@@ -65,9 +67,10 @@ export default function PrivacyPage() {
       <h2>Third parties we rely on</h2>
       <ul>
         <li>Firebase (Google) — authentication and our account database (Firestore).</li>
-        <li>Google Gemini API — powers AI editing features, using your own API key.</li>
+        <li>Google Gemini API — powers AI editing features, using our shared API key by default or your own key if you add one in Settings.</li>
         <li>Google Analytics — usage analytics, described above.</li>
         <li>Paddle.com Market Limited — payment processing and billing, as merchant of record.</li>
+        <li>Resend — sends transactional email (e.g. waitlist confirmation) to the address you provide.</li>
         <li>Our hosting provider — serves the application; standard request logs (e.g. IP address) may be retained briefly for security and abuse prevention.</li>
       </ul>
 

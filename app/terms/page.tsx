@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Terms & Conditions — HandWrought" 
 export default function TermsPage() {
   return (
     <LegalPage title="Terms & Conditions">
-      <p>Last updated: July 2026</p>
+      <p>Last updated: August 2026</p>
 
       <p>
         HandWrought is operated by Manish Pamnani, a sole proprietor (&quot;we&quot;, &quot;us&quot;). These terms
@@ -16,9 +16,11 @@ export default function TermsPage() {
 
       <h2>The Service</h2>
       <p>
-        HandWrought is a web-based writing editor with AI-assisted editing features (tone changes, synonyms,
-        rephrasing, shortening, expanding, and grammar fixes). The Service is &quot;bring your own key&quot;
-        (BYOK): AI features run against your own Google Gemini API key, which you supply and which is never stored
+        HandWrought is a web-based writing editor with AI-assisted editing features (outline generation, tone
+        changes, synonyms, rephrasing, shortening, expanding, and grammar fixes). By default, these features run
+        against a shared Google Gemini API key that we provide — new accounts get a limited number of free
+        generations, and Lifetime Access unlocks a larger monthly credit allotment. You can also supply your own
+        Google Gemini API key in Settings to run AI features against your own quota instead, which is never stored
         on our servers.
       </p>
 
@@ -30,10 +32,11 @@ export default function TermsPage() {
 
       <h2>Payment and access</h2>
       <p>
-        HandWrought Lifetime Access is a one-time purchase that unlocks the editor&apos;s AI features for the
-        purchasing account, for as long as the Service exists. Payments are processed by Paddle.com Market Ltd, our
-        payment processor and merchant of record — Paddle handles your payment details, receipts, and applicable
-        tax; we never see or store your card details. See our{" "}
+        New accounts get a limited number of free AI generations, no payment required. HandWrought Lifetime Access
+        is a one-time purchase — not a subscription — that unlocks a monthly credit allotment for AI generations,
+        refreshing automatically for as long as you use the Service. Payments are processed by Paddle.com Market
+        Ltd, our payment processor and merchant of record — Paddle handles your payment details, receipts, and
+        applicable tax; we never see or store your card details. See our{" "}
         <a href="/refund">Refund Policy</a> for cancellation and refund terms.
       </p>
 
