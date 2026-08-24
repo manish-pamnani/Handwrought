@@ -76,3 +76,10 @@ export async function grantTier(uid: string, tier: Tier): Promise<void> {
   const creditsResetAt = new Date(Date.now() + THIRTY_DAYS_MS).toISOString();
   await ref.set({ tier, creditsRemaining: TIER_CREDITS[tier], creditsResetAt }, { merge: true });
 }
+
+// Called by the Paddle webhook on an approved refund or chargeback — matches
+// the 14-day no-questions-asked refund promised in the Refund Policy.
+export async function revokeTier(uid: string): Promise<void> {
+  const ref = getAdminDb().collection("users").doc(uid);
+  await ref.set({ tier: null, creditsRemaining: 0 }, { merge: true });
+}

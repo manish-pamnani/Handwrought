@@ -38,8 +38,6 @@ export const TIER_PRICE_IDS: Record<Tier, string> =
 // done and the live env vars below are filled in.
 export const PADDLE_CHECKOUT_ENABLED = process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_ENABLED === "true";
 
-export const EARLY_BIRD_DISCOUNT_CODE = "EARLYBIRD50";
-
 // Free generations any guest gets against HandWrought's shared Gemini key
 // before being asked to upgrade. See lib/serverCredits.ts.
 export const FREE_GENERATIONS_LIMIT = 5;
