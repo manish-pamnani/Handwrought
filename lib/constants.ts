@@ -29,6 +29,15 @@ const LIVE_TIER_PRICE_IDS: Record<Tier, string> = {
 };
 export const TIER_PRICE_IDS: Record<Tier, string> =
   process.env.NEXT_PUBLIC_PADDLE_ENV === "production" ? LIVE_TIER_PRICE_IDS : SANDBOX_TIER_PRICE_IDS;
+
+// Explicit go-live switch for the Paddle checkout UI, separate from having
+// price IDs populated — Paddle also requires the sending domain to be
+// verified/approved in the dashboard before checkout can safely go live.
+// Unset (or anything other than "true"), the checkout page always falls back
+// to the waitlist form. Flip to "true" in Vercel once domain verification is
+// done and the live env vars below are filled in.
+export const PADDLE_CHECKOUT_ENABLED = process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_ENABLED === "true";
+
 export const EARLY_BIRD_DISCOUNT_CODE = "EARLYBIRD50";
 
 // Free generations any guest gets against HandWrought's shared Gemini key

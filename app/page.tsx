@@ -423,7 +423,6 @@ function Home() {
         onSignOut={() => signOutUser()}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenSignUp={() => setSignUpOpen(true)}
-        onOpenPaywall={() => setPaywallOpen(true)}
         creditsRef={creditsRef}
         headerSlotRef={headerSlotRef}
       />

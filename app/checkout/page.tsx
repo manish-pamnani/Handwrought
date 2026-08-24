@@ -6,17 +6,18 @@ import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
 import { useAuth } from "@/lib/AuthContext";
-import { TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
+import { PADDLE_CHECKOUT_ENABLED, TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
 
 const TIERS: Tier[] = ["9", "19", "29"];
 
 const inputClasses =
   "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-2 font-sans text-[13px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-tint)]";
 
-// Guards against shipping a broken checkout if live Paddle price IDs haven't
-// been populated yet in lib/constants.ts (e.g. sandbox-tested but live
-// account not finished) — falls back to the waitlist form in that case.
-const CHECKOUT_READY = TIERS.every((tier) => TIER_PRICE_IDS[tier]);
+// Requires the explicit PADDLE_CHECKOUT_ENABLED go-live switch (see
+// lib/constants.ts — off until Paddle's domain verification is done), and
+// guards against shipping a broken checkout if price IDs haven't been
+// populated yet either way. Falls back to the waitlist form otherwise.
+const CHECKOUT_READY = PADDLE_CHECKOUT_ENABLED && TIERS.every((tier) => TIER_PRICE_IDS[tier]);
 
 function formatTotal(totals: CheckoutEventsData["totals"], currencyCode: string): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: currencyCode }).format(totals.total);

@@ -17,7 +17,6 @@ type TopBarProps = {
   onSignOut: () => void;
   onOpenSettings: () => void;
   onOpenSignUp: () => void;
-  onOpenPaywall: () => void;
   /** lets GuidedAnnotations measure the real credits element to point its arrow at */
   creditsRef?: RefObject<HTMLSpanElement | null>;
   /** docking target the whole-document composer pill animates into once onboarding latches */
@@ -34,7 +33,6 @@ export default function TopBar({
   onSignOut,
   onOpenSettings,
   onOpenSignUp,
-  onOpenPaywall,
   creditsRef,
   headerSlotRef,
 }: TopBarProps) {
@@ -132,13 +130,12 @@ export default function TopBar({
                       selection — uses 1 credit. Importing a PDF or Word doc also uses 1 credit (.txt/.md imports are
                       free). Guests get {FREE_GENERATIONS_LIMIT} free, no card required.
                     </p>
-                    <button
-                      type="button"
-                      onClick={onOpenPaywall}
-                      className="mt-2.5 w-full rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-sans text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+                    <Link
+                      href="/checkout"
+                      className="mt-2.5 block w-full rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-center font-sans text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
                     >
                       Get Lifetime Access
-                    </button>
+                    </Link>
                   </>
                 )}
               </div>
