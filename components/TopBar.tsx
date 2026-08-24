@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState, type RefObject } from "react";
 import { countWords } from "@/lib/wordCount";
-import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
+import { FREE_GENERATIONS_LIMIT, type Tier } from "@/lib/constants";
 import type { DocumentPanelHandle } from "./DocumentPanel";
 
 type TopBarProps = {
@@ -12,7 +12,7 @@ type TopBarProps = {
   documentPanelRef: RefObject<DocumentPanelHandle | null>;
   isGuest: boolean;
   userEmail: string | null;
-  lifetimeAccess: boolean;
+  tier: Tier | null;
   creditsRemaining: number;
   onSignOut: () => void;
   onOpenSettings: () => void;
@@ -29,7 +29,7 @@ export default function TopBar({
   documentPanelRef,
   isGuest,
   userEmail,
-  lifetimeAccess,
+  tier,
   creditsRemaining,
   onSignOut,
   onOpenSettings,
@@ -109,7 +109,9 @@ export default function TopBar({
               ref={creditsRef}
               className="max-w-[200px] cursor-help truncate font-mono text-xs text-[var(--color-ink-muted)] underline decoration-dotted decoration-[var(--color-border)] underline-offset-4"
             >
-              {lifetimeAccess ? "Guest · lifetime access" : `Guest · ${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`}
+              {tier
+                ? `Guest · ${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`
+                : `Guest · ${creditsRemaining} free ${creditsRemaining === 1 ? "credit" : "credits"} left`}
             </span>
 
             {/* pt-2 (not mt-2) keeps the gap above the card inside the hoverable
@@ -118,9 +120,10 @@ export default function TopBar({
             <div className="pointer-events-none absolute right-0 top-full z-50 w-64 pt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-3 shadow-lg">
                 <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
-                {lifetimeAccess ? (
+                {tier ? (
                   <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                    You have lifetime access — every generation runs at full quality, uncapped.
+                    You have Lifetime Access (${tier} tier) — {creditsRemaining} credits left this cycle, refreshing
+                    automatically every 30 days.
                   </p>
                 ) : (
                   <>
@@ -134,7 +137,7 @@ export default function TopBar({
                       onClick={onOpenPaywall}
                       className="mt-2.5 w-full rounded-full bg-[var(--color-accent)] px-3 py-1.5 font-sans text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
                     >
-                      Upgrade for unlimited generations
+                      Get Lifetime Access
                     </button>
                   </>
                 )}

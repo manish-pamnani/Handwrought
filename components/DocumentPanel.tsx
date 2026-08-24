@@ -7,6 +7,7 @@ import { findTable, TableMap } from "@tiptap/pm/tables";
 import { TextSelection } from "@tiptap/pm/state";
 import { EDITOR_EXTENSIONS, getMarkdown } from "@/lib/richTextExtensions";
 import type { Suggestion } from "@/lib/types";
+import type { Tier } from "@/lib/constants";
 import SelectionToolbar from "./SelectionToolbar";
 import FormattingToolbar from "./FormattingToolbar";
 import WelcomeOverlay from "./WelcomeOverlay";
@@ -57,7 +58,7 @@ type DocumentPanelProps = {
   toolbarRowRef?: RefObject<HTMLDivElement | null>;
   /** for the welcome card's "N free outlines left" line */
   creditsRemaining: number;
-  lifetimeAccess: boolean;
+  tier: Tier | null;
   /** lets DocumentComposer measure where its pill starts before it docks into the header */
   centerSlotRef: RefObject<HTMLDivElement | null>;
   /** shared one-shot guard with DocumentComposer so onboarding can't fire twice (Enter-in-editor vs. the composer's own submit) */
@@ -103,7 +104,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     toolbarRowRef,
     outlineStatus = "idle",
     creditsRemaining,
-    lifetimeAccess,
+    tier,
     centerSlotRef,
     outlineFiredRef,
     onSelectExample,
@@ -288,7 +289,7 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
           <WelcomeOverlay
             active={showWelcome}
             creditsRemaining={creditsRemaining}
-            lifetimeAccess={lifetimeAccess}
+            tier={tier}
             centerSlotRef={centerSlotRef}
             onSelectExample={onSelectExample}
             onOpenImport={onOpenImport}

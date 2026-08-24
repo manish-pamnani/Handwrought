@@ -20,7 +20,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
   }
 
-  const { lifetimeAccess, freeGenerationsUsed, freeGenerationsLimit } = await getUsage(uid);
+  const { tier, creditsRemaining, freeGenerationsUsed, freeGenerationsLimit } = await getUsage(uid);
 
-  return NextResponse.json({ lifetimeAccess, freeGenerationsUsed, freeGenerationsLimit });
+  return NextResponse.json({ tier, creditsRemaining, freeGenerationsUsed, freeGenerationsLimit });
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { parseAssistantReply } from "@/lib/suggestionParser";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
-import { getUsage, incrementUsage } from "@/lib/serverCredits";
+import { getUsage, incrementUsage, consumeCredit } from "@/lib/serverCredits";
 import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
 import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
 import type { ChatMessage } from "@/lib/types";
@@ -142,6 +142,7 @@ export async function POST(req: Request) {
   let apiKey: string;
   let creditsRemaining: number | null = null;
   let shouldIncrementUsage = false;
+  let shouldConsumeCredit = false;
   let keySource: string;
 
   if (userKey) {
@@ -162,8 +163,19 @@ export async function POST(req: Request) {
     keySource = process.env.GEMINI_SHARED_API_KEY ? "shared" : "dev-fallback";
 
     const usage = await getUsage(uid);
-    if (usage.lifetimeAccess) {
+    if (usage.tier) {
+      if (usage.creditsRemaining <= 0) {
+        return NextResponse.json(
+          {
+            error: "You've used all your credits for this cycle. They'll refresh in your next 30-day cycle.",
+            code: "credits_exhausted",
+            creditsRemaining: 0,
+          },
+          { status: 402 }
+        );
+      }
       apiKey = sharedKey;
+      shouldConsumeCredit = true;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
       apiKey = sharedKey;
       shouldIncrementUsage = true;
@@ -200,7 +212,9 @@ export async function POST(req: Request) {
       );
     });
 
-    if (shouldIncrementUsage) {
+    if (shouldConsumeCredit) {
+      creditsRemaining = await consumeCredit(uid);
+    } else if (shouldIncrementUsage) {
       const newCount = await incrementUsage(uid);
       creditsRemaining = Math.max(0, FREE_GENERATIONS_LIMIT - newCount);
     }

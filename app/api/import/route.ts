@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import WordExtractor from "word-extractor";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
-import { getUsage, incrementUsage } from "@/lib/serverCredits";
+import { getUsage, incrementUsage, consumeCredit } from "@/lib/serverCredits";
 import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
 import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
 
@@ -164,6 +164,7 @@ export async function POST(request: Request) {
   let apiKey: string;
   let creditsRemaining: number | null = null;
   let shouldIncrementUsage = false;
+  let shouldConsumeCredit = false;
 
   if (userKey) {
     apiKey = userKey;
@@ -178,8 +179,19 @@ export async function POST(request: Request) {
     }
 
     const usage = await getUsage(uid);
-    if (usage.lifetimeAccess) {
+    if (usage.tier) {
+      if (usage.creditsRemaining <= 0) {
+        return NextResponse.json(
+          {
+            error: "You've used all your credits for this cycle. They'll refresh in your next 30-day cycle.",
+            code: "credits_exhausted",
+            creditsRemaining: 0,
+          },
+          { status: 402 }
+        );
+      }
       apiKey = sharedKey;
+      shouldConsumeCredit = true;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
       apiKey = sharedKey;
       shouldIncrementUsage = true;
@@ -216,7 +228,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Couldn't read that file — try again in a moment." }, { status: 502 });
   }
 
-  if (shouldIncrementUsage) {
+  if (shouldConsumeCredit) {
+    creditsRemaining = await consumeCredit(uid);
+  } else if (shouldIncrementUsage) {
     const newCount = await incrementUsage(uid);
     creditsRemaining = Math.max(0, FREE_GENERATIONS_LIMIT - newCount);
   }

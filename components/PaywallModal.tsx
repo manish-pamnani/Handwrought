@@ -31,14 +31,15 @@ export default function PaywallModal({ open, onClose }: PaywallModalProps) {
         </div>
         <h2 className="font-serif text-lg font-semibold text-[var(--color-ink)]">You&apos;re out of free tries</h2>
         <p className="mt-1 mb-5 font-sans text-[13.5px] leading-relaxed text-[var(--color-ink-muted)]">
-          Upgrade for unlimited, higher-quality generations whenever you&apos;re ready.
+          Get Lifetime Access — a one-time payment, no subscription, with a monthly credit allotment that refreshes
+          for as long as you use HandWrought.
         </p>
 
         <Link
           href="/checkout"
           className="w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 text-center font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
         >
-          Upgrade to Premium
+          Get Lifetime Access
         </Link>
       </div>
     </div>

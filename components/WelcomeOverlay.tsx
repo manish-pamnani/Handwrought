@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import type { RefObject } from "react";
+import type { Tier } from "@/lib/constants";
 
 type WelcomeOverlayProps = {
   active: boolean;
   creditsRemaining: number;
-  lifetimeAccess: boolean;
+  tier: Tier | null;
   /** lets DocumentComposer measure where its pill starts before it docks into the header */
   centerSlotRef: RefObject<HTMLDivElement | null>;
   /** fires the same one-shot onboarding outline the composer's own submit does, with a canned topic */
@@ -40,7 +41,7 @@ const EXAMPLE_PROMPTS = [
 export default function WelcomeOverlay({
   active,
   creditsRemaining,
-  lifetimeAccess,
+  tier,
   centerSlotRef,
   onSelectExample,
   onOpenImport,
@@ -90,8 +91,8 @@ export default function WelcomeOverlay({
       </div>
 
       <p className="mt-3 font-mono text-[11px] text-[var(--color-ink-muted)]">
-        {lifetimeAccess
-          ? "Unlimited drafts"
+        {tier
+          ? `${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`
           : `${creditsRemaining} free ${creditsRemaining === 1 ? "try" : "tries"} left`}
       </p>
     </div>

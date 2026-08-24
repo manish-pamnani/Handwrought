@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
-import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
+import { FREE_GENERATIONS_LIMIT, type Tier } from "@/lib/constants";
 
 type AccessData = {
-  lifetimeAccess: boolean;
+  tier: Tier | null;
+  creditsRemaining: number;
   freeGenerationsUsed: number;
   freeGenerationsLimit: number;
 };
@@ -14,7 +15,7 @@ type AccessState = "loading" | "ready" | "error";
 
 export type UseAccessResult = {
   state: AccessState;
-  lifetimeAccess: boolean;
+  tier: Tier | null;
   creditsRemaining: number;
   /** re-fetch after a generation, a purchase, or a sign-up, to pick up server-side changes */
   refresh: () => void;
@@ -50,20 +51,14 @@ export function useAccess(): UseAccessResult {
   }, [runCheck]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  const creditsRemaining = data
-    ? Math.max(0, data.freeGenerationsLimit - data.freeGenerationsUsed)
-    : FREE_GENERATIONS_LIMIT;
-
   function setCreditsRemaining(n: number) {
-    setData((prev) =>
-      prev ? { ...prev, freeGenerationsUsed: prev.freeGenerationsLimit - Math.max(0, n) } : prev
-    );
+    setData((prev) => (prev ? { ...prev, creditsRemaining: Math.max(0, n) } : prev));
   }
 
   return {
     state,
-    lifetimeAccess: data?.lifetimeAccess ?? false,
-    creditsRemaining,
+    tier: data?.tier ?? null,
+    creditsRemaining: data?.creditsRemaining ?? FREE_GENERATIONS_LIMIT,
     refresh: runCheck,
     setCreditsRemaining,
   };

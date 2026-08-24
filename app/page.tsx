@@ -148,7 +148,7 @@ function Home() {
   }
 
   async function handleSend(text: string, opts?: { wholeDocument?: boolean; autoAccept?: boolean }): Promise<boolean> {
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
+    if (!apiKey && access.creditsRemaining <= 0) {
       openPaywallFromExhaustion();
       return false;
     }
@@ -295,7 +295,7 @@ function Home() {
     // Same pre-flight the paywall check inside handleSend does — skip the
     // "drafting…"/error status entirely when we already know it'll just
     // bounce straight to the paywall, so the two don't show at once.
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
+    if (!apiKey && access.creditsRemaining <= 0) {
       openPaywallFromExhaustion();
       return;
     }
@@ -327,7 +327,7 @@ function Home() {
     // paywall with no generation behind it, and outlineFiredRef being latched
     // left them permanently stuck even after dismissing the paywall — same
     // credits_exhausted signal handleSend/handleOutlineEnter already use.
-    if (!apiKey && !access.lifetimeAccess && access.creditsRemaining <= 0) {
+    if (!apiKey && access.creditsRemaining <= 0) {
       openPaywallFromExhaustion();
       return;
     }
@@ -418,7 +418,7 @@ function Home() {
         documentPanelRef={documentPanelRef}
         isGuest={isGuest}
         userEmail={user!.email}
-        lifetimeAccess={access.lifetimeAccess}
+        tier={access.tier}
         creditsRemaining={access.creditsRemaining}
         onSignOut={() => signOutUser()}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -445,7 +445,7 @@ function Home() {
           onEditorFocus={() => setHasStartedWriting(true)}
           toolbarRowRef={toolbarRowRef}
           creditsRemaining={access.creditsRemaining}
-          lifetimeAccess={access.lifetimeAccess}
+          tier={access.tier}
           centerSlotRef={centerSlotRef}
           outlineFiredRef={outlineFiredRef}
           onSelectExample={handleSelectExample}

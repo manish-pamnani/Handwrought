@@ -2,13 +2,33 @@ export const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese"
 
 export const TONES = ["Professional", "Casual", "Persuasive", "Friendly", "Confident", "Formal"];
 
+// Lifetime Access: a one-time purchase that unlocks a monthly-refreshing
+// credit allotment, forever — not a recurring subscription charge. See
+// lib/serverCredits.ts for the reset logic.
+export type Tier = "9" | "19" | "29";
+
+export const TIER_CREDITS: Record<Tier, number> = {
+  "9": 100,
+  "19": 200,
+  "29": 400,
+};
+
 // Paddle catalog IDs are environment-scoped (sandbox and live are fully separate
-// accounts) — see scripts/seed-paddle-catalog.ts (sandbox) and
-// scripts/migrate-catalog-to-live.ts (live) for the full ID mapping.
-export const LIFETIME_ACCESS_PRICE_ID =
-  process.env.NEXT_PUBLIC_PADDLE_ENV === "production"
-    ? "pri_01kzb4s7xtpn9yp5sz6nzxjx23" // live
-    : "pri_01kys9wp1gm138vwyy9xx8qr4f"; // sandbox
+// accounts) — sandbox seeded via scripts/seed-paddle-tiers.ts. Live IDs are
+// still empty; populate them the same way against a live Paddle API key before
+// flipping NEXT_PUBLIC_PADDLE_ENV to "production".
+const SANDBOX_TIER_PRICE_IDS: Record<Tier, string> = {
+  "9": "pri_01m0s03e50z45b37ba9hbreygn",
+  "19": "pri_01m0s03eez9126bdkv3az4tybf",
+  "29": "pri_01m0s03eqj6eyw4a9pw8wd2p7w",
+};
+const LIVE_TIER_PRICE_IDS: Record<Tier, string> = {
+  "9": "",
+  "19": "",
+  "29": "",
+};
+export const TIER_PRICE_IDS: Record<Tier, string> =
+  process.env.NEXT_PUBLIC_PADDLE_ENV === "production" ? LIVE_TIER_PRICE_IDS : SANDBOX_TIER_PRICE_IDS;
 export const EARLY_BIRD_DISCOUNT_CODE = "EARLYBIRD50";
 
 // Free generations any guest gets against HandWrought's shared Gemini key
