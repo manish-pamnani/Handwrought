@@ -1,7 +1,7 @@
-// One-time script to (re)seed the 3-tier Lifetime Access pricing in the Paddle
+// One-time script to (re)seed the 3-tier credit pricing in the Paddle
 // sandbox catalog — $9/100 credits, $19/200 credits, $29/400 credits per month,
-// each a one-time purchase (no billing_cycle). Reuses the existing "Handwrought
-// Lifetime Access" product from the earlier single-price attempt and archives
+// each a one-time purchase (no billing_cycle). Reuses the existing "HandWrought
+// Credits" product from the earlier single-price attempt and archives
 // its stale $9.99 price.
 // Run with: npx tsx --env-file=.env.local scripts/seed-paddle-tiers.ts
 // Requires PADDLE_API_KEY (sandbox) in the environment.
@@ -25,7 +25,7 @@ async function seed() {
   for (const tier of Object.keys(TIER_AMOUNTS_CENTS) as Tier[]) {
     const price = await paddle.prices.create({
       productId: LIFETIME_ACCESS_PRODUCT_ID,
-      description: `Lifetime Access — $${tier} tier (${TIER_CREDITS[tier as Tier]} credits/month)`,
+      description: `Credits — $${tier} tier (${TIER_CREDITS[tier as Tier]} credits/month)`,
       unitPrice: { amount: TIER_AMOUNTS_CENTS[tier as Tier], currencyCode: "USD" },
       customData: { tier },
     });
