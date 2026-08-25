@@ -2,7 +2,7 @@ export const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese"
 
 export const TONES = ["Professional", "Casual", "Persuasive", "Friendly", "Confident", "Formal"];
 
-// Lifetime Access: a one-time purchase that unlocks a monthly-refreshing
+// Credits: a one-time purchase that unlocks a monthly-refreshing
 // credit allotment, forever — not a recurring subscription charge. See
 // lib/serverCredits.ts for the reset logic.
 export type Tier = "9" | "19" | "29";
@@ -23,9 +23,9 @@ const SANDBOX_TIER_PRICE_IDS: Record<Tier, string> = {
   "29": "pri_01m0s03eqj6eyw4a9pw8wd2p7w",
 };
 const LIVE_TIER_PRICE_IDS: Record<Tier, string> = {
-  "9": "",
-  "19": "",
-  "29": "",
+  "9": "pri_01m0vkxytnw0v6fym6b0kmq940",
+  "19": "pri_01m0vkxygeb4ckhpbyf0pwpjxy",
+  "29": "pri_01m0vkxy5cmwr95ef157f0smwr",
 };
 export const TIER_PRICE_IDS: Record<Tier, string> =
   process.env.NEXT_PUBLIC_PADDLE_ENV === "production" ? LIVE_TIER_PRICE_IDS : SANDBOX_TIER_PRICE_IDS;

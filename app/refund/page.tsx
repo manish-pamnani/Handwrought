@@ -8,9 +8,9 @@ export default function RefundPage() {
     <LegalPage title="Refund Policy">
       <p>Last updated: July 2026</p>
 
-      <h2>Lifetime Access</h2>
+      <h2>Credits</h2>
       <p>
-        If HandWrought Lifetime Access isn&apos;t right for you, email us within <strong>14 days</strong> of your
+        If your HandWrought credits aren&apos;t right for you, email us within <strong>14 days</strong> of your
         purchase and we&apos;ll issue a full refund — no questions asked, no need to justify why.
       </p>
 

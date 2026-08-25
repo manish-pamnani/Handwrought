@@ -21,9 +21,9 @@ function waitlistConfirmationHtml(): string {
       <p style="font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; color: #64594a; margin: 0 0 24px;">HandWrought</p>
       <h1 style="font-size: 20px; font-weight: 600; margin: 0 0 16px;">You're on the list</h1>
       <p style="font-size: 15px; line-height: 1.6; margin: 0 0 14px;">
-        Thanks for joining the waitlist for Lifetime Access — a one-time purchase, no subscription, unlimited
-        full-quality generations. We're still finishing the details, and the moment it's ready to buy, you'll
-        be the first to know.
+        Thanks for joining the waitlist for credits — a one-time purchase, no subscription, that unlock a
+        monthly credit allotment for as long as you use HandWrought. We're still finishing the details, and the
+        moment it's ready to buy, you'll be the first to know.
       </p>
       <p style="font-size: 15px; line-height: 1.6; margin: 0 0 14px;">
         In the meantime, your free credits are still yours to use — nothing about this changes how you write today.
@@ -39,9 +39,9 @@ function waitlistConfirmationHtml(): string {
 function waitlistConfirmationText(): string {
   return (
     "You're on the list.\n\n" +
-    "Thanks for joining the waitlist for Lifetime Access — a one-time purchase, no subscription, unlimited " +
-    "full-quality generations. We're still finishing the details, and the moment it's ready to buy, you'll " +
-    "be the first to know.\n\n" +
+    "Thanks for joining the waitlist for credits — a one-time purchase, no subscription, that unlock a " +
+    "monthly credit allotment for as long as you use HandWrought. We're still finishing the details, and the " +
+    "moment it's ready to buy, you'll be the first to know.\n\n" +
     "In the meantime, your free credits are still yours to use — nothing about this changes how you write today.\n\n" +
     "— HandWrought\n" +
     "Written by hand, shaped by AI."

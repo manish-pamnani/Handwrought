@@ -61,15 +61,15 @@ function WaitlistCheckout() {
         <>
           <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">You&apos;re on the list</h1>
           <p className="mt-2 font-sans text-[13.5px] leading-relaxed text-[var(--color-ink-muted)]">
-            We&apos;ll email you the moment Lifetime Access is ready to buy. Your free credits are still yours in the
+            We&apos;ll email you the moment credits are ready to buy. Your free credits are still yours in the
             meantime.
           </p>
         </>
       ) : (
         <>
-          <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Lifetime access is coming soon</h1>
+          <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Credits are coming soon</h1>
           <p className="mt-2 font-sans text-[13.5px] leading-relaxed text-[var(--color-ink-muted)]">
-            We&apos;re still finishing up billing for the one-time Lifetime Access purchase — a monthly credit
+            We&apos;re still finishing up billing for the one-time credit purchase — a monthly credit
             allotment with no subscription. Join the waitlist and we&apos;ll email you the moment it&apos;s ready to
             buy.
           </p>
@@ -121,7 +121,7 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
 
   return (
     <div className="flex flex-1 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
-      <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Lifetime Access</p>
+      <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Credits</p>
       <p className="mt-1 font-serif text-3xl font-semibold text-[var(--color-ink)]">
         ${tier}
         <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
@@ -206,7 +206,7 @@ function PaddleCheckout() {
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-6 px-5 py-10 sm:py-16">
       <div className="text-center">
-        <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Lifetime Access</h1>
+        <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Credits</h1>
         <p className="mt-1.5 font-sans text-[13.5px] text-[var(--color-ink-muted)]">
           One-time payment, not a subscription — pick a credit tier once and it refreshes every month, for as long as
           you use HandWrought.

@@ -58,7 +58,7 @@ export default function AuthForm({ onSuccess }: AuthFormProps) {
       <p className="font-sans text-[13px] text-[var(--color-ink-muted)]">
         {mode === "signin"
           ? "Sign in to continue."
-          : "Create an account to save your work across devices and unlock lifetime access."}
+          : "Create an account to save your work across devices and unlock credits."}
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-3">

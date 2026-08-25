@@ -120,7 +120,7 @@ export default function TopBar({
                 <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
                 {tier ? (
                   <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                    You have Lifetime Access (${tier} tier) — {creditsRemaining} credits left this cycle, refreshing
+                    You're on the ${tier} credit tier — {creditsRemaining} credits left this cycle, refreshing
                     automatically every 30 days.
                   </p>
                 ) : (
@@ -134,7 +134,7 @@ export default function TopBar({
                       href="/checkout"
                       className="mt-2.5 block w-full rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-center font-sans text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
                     >
-                      Get Lifetime Access
+                      Get Credits
                     </Link>
                   </>
                 )}

@@ -17,7 +17,7 @@ export default function PrivacyPage() {
       <p>
         We use Firebase Authentication (Google) to manage sign-up and sign-in. We store your email address and an
         authentication record; we never see or store your password directly (Firebase handles that). We also store,
-        against your account, your remaining AI generation credits and, if you&apos;ve purchased Lifetime Access,
+        against your account, your remaining AI generation credits and, if you&apos;ve purchased credits,
         your credit tier and the associated Paddle transaction ID.
       </p>
 

@@ -29,7 +29,7 @@ export default function PricingPage() {
         <div className="text-center">
           <h1 className="font-serif text-2xl font-semibold text-[var(--color-ink)] sm:text-3xl">Pricing</h1>
           <p className="mt-2 max-w-md font-sans text-[13.5px] leading-relaxed text-[var(--color-ink-muted)]">
-            Start free, no card required. Lifetime Access is a one-time payment — not a subscription — that unlocks
+            Start free, no card required. A credit tier is a one-time payment — not a subscription — that unlocks
             a monthly credit allotment which refreshes for as long as you use HandWrought.
           </p>
         </div>
@@ -48,7 +48,7 @@ export default function PricingPage() {
               key={tier}
               className="flex flex-1 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5"
             >
-              <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Lifetime Access</p>
+              <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Credits</p>
               <p className="mt-1 font-serif text-3xl font-semibold text-[var(--color-ink)]">
                 ${tier}
                 <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
@@ -65,7 +65,7 @@ export default function PricingPage() {
             href="/checkout"
             className="inline-block rounded-full bg-[var(--color-accent)] px-5 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
           >
-            Get Lifetime Access
+            Get Credits
           </Link>
           <p className="mt-3 font-sans text-xs text-[var(--color-ink-muted)]">
             Every AI generation — an outline, a rewrite, or a quick edit — uses 1 credit. Refunds available within 14

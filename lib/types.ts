@@ -46,7 +46,7 @@ export type Selection = {
 export type ChatApiResponse = {
   comment: string;
   suggestion: { mode: SuggestionMode; options: string[] } | null;
-  /** free generations left on the shared key; null when unlimited (BYOK or lifetime access) */
+  /** free generations left on the shared key; null when unlimited (BYOK or a credit tier) */
   creditsRemaining: number | null;
 };
 
