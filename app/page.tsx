@@ -417,7 +417,7 @@ function Home() {
         documentText={documentText}
         documentPanelRef={documentPanelRef}
         isGuest={isGuest}
-        userEmail={user!.email}
+        user={user}
         tier={access.tier}
         creditsRemaining={access.creditsRemaining}
         onSignOut={() => signOutUser()}

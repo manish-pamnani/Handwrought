@@ -6,6 +6,7 @@ import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
 import { useAuth } from "@/lib/AuthContext";
+import { useAccess } from "@/lib/useAccess";
 import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import { PADDLE_CHECKOUT_ENABLED, TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
 
@@ -142,6 +143,30 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
   );
 }
 
+function CurrentPlanCard() {
+  const access = useAccess();
+  if (access.state !== "ready") return null;
+
+  return (
+    <div className="flex w-full max-w-3xl items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3">
+      <div>
+        <p className="font-sans text-sm font-medium text-[var(--color-ink)]">
+          {access.tier ? `$${access.tier} credit tier` : "No credits purchased yet"}
+        </p>
+        <p className="mt-0.5 font-sans text-xs text-[var(--color-ink-muted)]">
+          {access.tier
+            ? "Buying a different tier below replaces this one — it doesn't stack."
+            : "Pick a tier below to get started."}
+        </p>
+      </div>
+      <p className="font-serif text-2xl font-semibold text-[var(--color-ink)]">
+        {access.creditsRemaining}
+        <span className="ml-1 font-sans text-xs font-normal text-[var(--color-ink-muted)]">left</span>
+      </p>
+    </div>
+  );
+}
+
 function PaddleCheckout() {
   const { user, loading } = useAuth();
   const [paddle, setPaddle] = useState<Paddle | null>(null);
@@ -245,6 +270,8 @@ function PaddleCheckout() {
           {checkoutError}
         </p>
       )}
+
+      <CurrentPlanCard />
 
       <div className="flex w-full max-w-3xl flex-col gap-4 sm:flex-row">
         {TIERS.map((tier) => (
