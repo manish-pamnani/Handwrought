@@ -6,7 +6,7 @@ import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
 import { useAuth } from "@/lib/AuthContext";
-import AuthForm from "@/components/AuthForm";
+import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import { PADDLE_CHECKOUT_ENABLED, TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
 
 const TIERS: Tier[] = ["9", "19", "29"];
@@ -148,6 +148,7 @@ function PaddleCheckout() {
   const [checkoutData, setCheckoutData] = useState<CheckoutEventsData | null>(null);
   const [complete, setComplete] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("signup");
   // Events keep firing after checkout.completed (e.g. checkout.closed), some with
   // stale/zeroed totals — freeze on the first completed event and ignore the rest.
   const completedRef = useRef(false);
@@ -213,14 +214,17 @@ function PaddleCheckout() {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-5 py-16">
         <div className="text-center">
-          <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Create an account first</h1>
+          <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">
+            {authMode === "signin" ? "Welcome back" : "Create an account"}
+          </h1>
           <p className="mt-1.5 font-sans text-[13.5px] text-[var(--color-ink-muted)]">
-            So your credits (and your work) are tied to an account you can always get back to — not just this
-            browser.
+            {authMode === "signin"
+              ? "Sign in to continue writing your masterpiece."
+              : "Start turning your drafts into polished masterpieces."}
           </p>
         </div>
         <div className="mt-6">
-          <AuthForm onSuccess={() => {}} />
+          <AuthForm onSuccess={() => {}} onModeChange={setAuthMode} />
         </div>
       </main>
     );

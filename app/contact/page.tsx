@@ -12,8 +12,8 @@ export default function ContactPage() {
       </p>
 
       <p>
-        <a href="mailto:manishpamnani169@gmail.com" className="font-semibold">
-          manishpamnani169@gmail.com
+        <a href="mailto:handwrought.support@gmail.com" className="font-semibold">
+          handwrought.support@gmail.com
         </a>
       </p>
 

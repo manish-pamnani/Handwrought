@@ -7,6 +7,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   linkWithCredential,
+  linkWithPopup,
+  signInWithPopup,
+  getAdditionalUserInfo,
+  GoogleAuthProvider,
   EmailAuthProvider,
   signOut,
   type User,
@@ -14,11 +18,14 @@ import {
 import { auth } from "@/lib/firebase";
 import { trackSignupCompleted } from "@/lib/analytics";
 
+const googleProvider = new GoogleAuthProvider();
+
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signInGuest: () => Promise<void>;
   signOutUser: () => Promise<void>;
 };
@@ -57,6 +64,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
+  async function signInWithGoogle() {
+    // Same guest-upgrade logic as signUp above: keep the anonymous uid (and
+    // its free-generation count) by linking Google to it in place, rather
+    // than starting a fresh account.
+    if (auth.currentUser?.isAnonymous) {
+      try {
+        await linkWithPopup(auth.currentUser, googleProvider);
+        trackSignupCompleted("guest_upgrade");
+        return;
+      } catch (err) {
+        // That Google account is already tied to a different Firebase user —
+        // fall back to signing into the existing account instead of
+        // upgrading this guest session.
+        if ((err as { code?: string })?.code !== "auth/credential-already-in-use") throw err;
+      }
+    }
+    const result = await signInWithPopup(auth, googleProvider);
+    if (getAdditionalUserInfo(result)?.isNewUser) trackSignupCompleted("new_account");
+  }
+
   async function signInGuest() {
     await signInAnonymously(auth);
   }
@@ -66,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInGuest, signOutUser }}>
+    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInWithGoogle, signInGuest, signOutUser }}>
       {children}
     </AuthContext.Provider>
   );

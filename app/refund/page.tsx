@@ -16,7 +16,7 @@ export default function RefundPage() {
 
       <h2>How to request a refund</h2>
       <p>
-        Email <a href="mailto:manishpamnani169@gmail.com">manishpamnani169@gmail.com</a> with the email address you
+        Email <a href="mailto:handwrought.support@gmail.com">handwrought.support@gmail.com</a> with the email address you
         purchased with (or your Paddle order confirmation). We aim to respond within 2 business days. Refunds are
         processed by Paddle, our payment processor, back to your original payment method — this can take a few
         business days to appear depending on your bank or card provider.
@@ -31,7 +31,7 @@ export default function RefundPage() {
       <h2>Contact</h2>
       <p>
         Questions about this policy? Email{" "}
-        <a href="mailto:manishpamnani169@gmail.com">manishpamnani169@gmail.com</a> or visit our{" "}
+        <a href="mailto:handwrought.support@gmail.com">handwrought.support@gmail.com</a> or visit our{" "}
         <a href="/contact">Contact page</a>.
       </p>
     </LegalPage>
