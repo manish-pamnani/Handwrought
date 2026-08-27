@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
+import { getAppCheckHeader } from "@/lib/firebase";
 import Modal from "./Modal";
 
 type ImportResponse = { text?: string; error?: string; code?: string; creditsRemaining?: number };
@@ -60,13 +61,14 @@ export default function ImportModal({
     setStatus("importing");
     try {
       const token = await user?.getIdToken();
+      const appCheckHeaders = await getAppCheckHeader();
       const formData = new FormData();
       formData.append("file", file);
       if (apiKey) formData.append("apiKey", apiKey);
 
       const res = await fetch("/api/import", {
         method: "POST",
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        headers: { ...(token && { Authorization: `Bearer ${token}` }), ...appCheckHeaders },
         body: formData,
       });
       const data: ImportResponse | null = await res.json().catch(() => null);

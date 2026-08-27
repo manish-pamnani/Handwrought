@@ -3,8 +3,15 @@ import { parseAssistantReply } from "@/lib/suggestionParser";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 import { getUsage, incrementUsage, consumeCredit } from "@/lib/serverCredits";
-import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
+import {
+  FREE_GENERATIONS_LIMIT,
+  FREE_TIER_MAX_CHARS,
+  FREE_TIER_MAX_OUTPUT_TOKENS,
+  FREE_TIER_RATE_LIMIT_PER_HOUR,
+} from "@/lib/constants";
 import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
+import { verifyAppCheck } from "@/lib/appCheck";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import type { ChatMessage } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -63,7 +70,8 @@ async function callGemini(
   cursorContextBefore: string,
   cursorContextAfter: string,
   apiKey: string,
-  model: GeminiModel
+  model: GeminiModel,
+  maxOutputTokens?: number
 ): Promise<string> {
   // The system instruction carries the full document for tone/voice context,
   // which on smaller models can dilute or outweigh the (comparatively tiny)
@@ -94,6 +102,7 @@ async function callGemini(
           parts: [{ text: buildContextPrompt(document, selectedText, cursorContextBefore, cursorContextAfter) }],
         },
         contents,
+        ...(maxOutputTokens && { generationConfig: { maxOutputTokens } }),
       }),
     }
   );
@@ -110,6 +119,10 @@ async function callGemini(
 }
 
 export async function POST(req: Request) {
+  if (!(await verifyAppCheck(req))) {
+    return NextResponse.json({ error: "Request could not be verified." }, { status: 403 });
+  }
+
   const authHeader = req.headers.get("authorization") ?? "";
   const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
   if (!idToken) {
@@ -177,6 +190,28 @@ export async function POST(req: Request) {
       apiKey = sharedKey;
       shouldConsumeCredit = true;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
+      // Free generations are otherwise unbounded in size, and a fresh
+      // anonymous session (no signup friction) gets a fresh 5 of them — cap
+      // content size so a single free generation can't be made arbitrarily
+      // expensive. Paid tiers and BYOK are unaffected.
+      const freeTierChars = document.length + (selectedText?.length ?? 0) + messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
+      if (freeTierChars > FREE_TIER_MAX_CHARS) {
+        return NextResponse.json(
+          { error: "Free generations are capped at around 700 words of document and message content — upgrade to continue with a longer document." },
+          { status: 400 }
+        );
+      }
+
+      // Backstop against the same abuse resetting anonymous sessions to keep
+      // re-claiming free generations from one IP — independent of uid.
+      const allowed = await checkRateLimit("free_generation", getClientIp(req), FREE_TIER_RATE_LIMIT_PER_HOUR);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Too many free generations from this network right now — try again later, or upgrade for uninterrupted access." },
+          { status: 429 }
+        );
+      }
+
       apiKey = sharedKey;
       shouldIncrementUsage = true;
       creditsRemaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
@@ -208,7 +243,8 @@ export async function POST(req: Request) {
         cursorContextBefore ?? "",
         cursorContextAfter ?? "",
         apiKey,
-        model
+        model,
+        shouldIncrementUsage ? FREE_TIER_MAX_OUTPUT_TOKENS : undefined
       );
     });
 

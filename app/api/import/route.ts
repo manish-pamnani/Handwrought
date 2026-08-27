@@ -2,8 +2,15 @@ import { NextResponse } from "next/server";
 import WordExtractor from "word-extractor";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
 import { getUsage, incrementUsage, consumeCredit } from "@/lib/serverCredits";
-import { FREE_GENERATIONS_LIMIT } from "@/lib/constants";
+import {
+  FREE_GENERATIONS_LIMIT,
+  FREE_TIER_MAX_IMPORT_BYTES,
+  FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS,
+  FREE_TIER_RATE_LIMIT_PER_HOUR,
+} from "@/lib/constants";
 import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
+import { verifyAppCheck } from "@/lib/appCheck";
+import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -80,7 +87,13 @@ const TEXT_CLEANUP_PROMPT =
   "summarize, shorten, or invent anything. Output only the Markdown, nothing else, and don't " +
   "wrap your entire response in one outer code fence.";
 
-async function callGemini(apiKey: string, model: GeminiModel, systemPrompt: string, userPart: object): Promise<string> {
+async function callGemini(
+  apiKey: string,
+  model: GeminiModel,
+  systemPrompt: string,
+  userPart: object,
+  maxOutputTokens?: number
+): Promise<string> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -89,6 +102,7 @@ async function callGemini(apiKey: string, model: GeminiModel, systemPrompt: stri
       body: JSON.stringify({
         system_instruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: "user", parts: [userPart] }],
+        ...(maxOutputTokens && { generationConfig: { maxOutputTokens } }),
       }),
     }
   );
@@ -107,6 +121,10 @@ async function callGemini(apiKey: string, model: GeminiModel, systemPrompt: stri
 }
 
 export async function POST(request: Request) {
+  if (!(await verifyAppCheck(request))) {
+    return NextResponse.json({ error: "Request could not be verified." }, { status: 403 });
+  }
+
   const authHeader = request.headers.get("authorization") ?? "";
   const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
   if (!idToken) {
@@ -193,6 +211,25 @@ export async function POST(request: Request) {
       apiKey = sharedKey;
       shouldConsumeCredit = true;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
+      // Same abuse guards as /api/chat's free-tier branch — a free import
+      // is otherwise bounded only by MAX_FILE_BYTES (10MB), which is far
+      // more than a trial user needs and far more than free-tier cost
+      // should be exposed to. Paid tiers and BYOK keep the full 10MB.
+      if (file.size > FREE_TIER_MAX_IMPORT_BYTES) {
+        return NextResponse.json(
+          { error: "Free imports are capped at 1MB — upgrade to import larger files." },
+          { status: 400 }
+        );
+      }
+
+      const allowed = await checkRateLimit("free_generation", getClientIp(request), FREE_TIER_RATE_LIMIT_PER_HOUR);
+      if (!allowed) {
+        return NextResponse.json(
+          { error: "Too many free generations from this network right now — try again later, or upgrade for uninterrupted access." },
+          { status: 429 }
+        );
+      }
+
       apiKey = sharedKey;
       shouldIncrementUsage = true;
       creditsRemaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
@@ -209,18 +246,28 @@ export async function POST(request: Request) {
     }
   }
 
+  const maxOutputTokens = shouldIncrementUsage ? FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS : undefined;
+
   let markdown: string;
   try {
     if (extension === "doc") {
       const extractor = new WordExtractor();
       const doc = await extractor.extract(buffer);
       const rawText = doc.getBody();
-      markdown = await callGeminiWithRotation((m) => callGemini(apiKey, m, TEXT_CLEANUP_PROMPT, { text: rawText }));
+      markdown = await callGeminiWithRotation((m) =>
+        callGemini(apiKey, m, TEXT_CLEANUP_PROMPT, { text: rawText }, maxOutputTokens)
+      );
     } else {
       const mimeType = NATIVE_DOCUMENT_MIME[extension];
       const base64 = buffer.toString("base64");
       markdown = await callGeminiWithRotation((m) =>
-        callGemini(apiKey, m, DOCUMENT_TO_MARKDOWN_PROMPT, { inline_data: { mime_type: mimeType, data: base64 } })
+        callGemini(
+          apiKey,
+          m,
+          DOCUMENT_TO_MARKDOWN_PROMPT,
+          { inline_data: { mime_type: mimeType, data: base64 } },
+          maxOutputTokens
+        )
       );
     }
   } catch (err) {

@@ -14,6 +14,7 @@ import ImportModal from "@/components/ImportModal";
 import AuthForm from "@/components/AuthForm";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/lib/AuthContext";
+import { getAppCheckHeader } from "@/lib/firebase";
 import { useAccess } from "@/lib/useAccess";
 import { getApiKey, setApiKey, clearApiKey } from "@/lib/apiKeyStorage";
 import { buildArticleInstruction } from "@/lib/outlinePrompt";
@@ -184,9 +185,10 @@ function Home() {
 
     try {
       const token = await user!.getIdToken();
+      const appCheckHeaders = await getAppCheckHeader();
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...appCheckHeaders },
         body: JSON.stringify({
           messages: nextMessages,
           document: documentText,
