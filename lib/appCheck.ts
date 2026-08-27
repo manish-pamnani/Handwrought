@@ -16,15 +16,25 @@ export const APP_CHECK_ENFORCED = process.env.FIREBASE_APPCHECK_ENFORCE === "tru
  * or the free-generation count check.
  */
 export async function verifyAppCheck(request: Request): Promise<boolean> {
-  if (!APP_CHECK_ENFORCED) return true;
-
   const token = request.headers.get("X-Firebase-AppCheck");
-  if (!token) return false;
+  let verified = false;
 
-  try {
-    await getAppCheck().verifyToken(token);
-    return true;
-  } catch {
-    return false;
+  if (token) {
+    try {
+      await getAppCheck().verifyToken(token);
+      verified = true;
+    } catch {
+      verified = false;
+    }
   }
+
+  // Logged unconditionally, even while not enforcing, so real traffic can be
+  // watched in Vercel's function logs before flipping FIREBASE_APPCHECK_ENFORCE
+  // — Firebase Console's own App Check metrics (Security > App Check > APIs)
+  // only cover Firebase's own backend products (Firestore, Storage, Cloud
+  // Functions), not this custom Admin-SDK verification path.
+  console.log(JSON.stringify({ event: "appcheck_verify", enforced: APP_CHECK_ENFORCED, hasToken: !!token, verified }));
+
+  if (!APP_CHECK_ENFORCED) return true;
+  return verified;
 }
