@@ -273,7 +273,7 @@ function Home() {
         {
           id: makeId(),
           role: "assistant",
-          content: "Sorry — I couldn't reach the writing assistant. Please try again!",
+          content: "Sorry — I couldn't reach the writing assistant. Please try again.",
           isError: true,
         },
       ]);
