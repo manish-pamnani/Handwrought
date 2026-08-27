@@ -3,9 +3,9 @@ import { getAppCheck } from "firebase-admin/app-check";
 // Gated behind an explicit env flag so this can't start rejecting real
 // traffic before both halves are actually in place: the client side
 // (NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY in lib/firebase.ts, wired into the
-// reCAPTCHA v3 provider) and the app being registered for App Check in the
-// Firebase Console. Flip FIREBASE_APPCHECK_ENFORCE to "true" once both are
-// done — until then this no-ops (every request passes).
+// reCAPTCHA Enterprise provider) and the app being registered for App Check
+// in the Firebase Console. Flip FIREBASE_APPCHECK_ENFORCE to "true" once
+// both are done — until then this no-ops (every request passes).
 export const APP_CHECK_ENFORCED = process.env.FIREBASE_APPCHECK_ENFORCE === "true";
 
 /**
