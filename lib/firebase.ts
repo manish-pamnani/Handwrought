@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { initializeAppCheck, ReCaptchaV3Provider, getToken as getAppCheckToken, type AppCheck } from "firebase/app-check";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckToken, type AppCheck } from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -17,14 +17,16 @@ export const auth = getAuth(firebaseApp);
 // Proves requests to /api/chat and /api/import came from this real app
 // instance rather than a script — the main defense against scripted
 // free-tier abuse. Silently no-ops until NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY
-// is set (a reCAPTCHA v3 site key from the Firebase Console App Check setup),
-// so this doesn't break anything before that's configured. Matching
-// server-side gate: lib/appCheck.ts (FIREBASE_APPCHECK_ENFORCE).
+// is set (a reCAPTCHA Enterprise key ID — from a Web-type key created in the
+// SAME Cloud project as this Firebase project, then registered against this
+// app in Firebase Console > App Check > Apps), so this doesn't break anything
+// before that's configured. Matching server-side gate: lib/appCheck.ts
+// (FIREBASE_APPCHECK_ENFORCE).
 let appCheck: AppCheck | null = null;
 const appCheckSiteKey = process.env.NEXT_PUBLIC_FIREBASE_APPCHECK_SITE_KEY;
 if (typeof window !== "undefined" && appCheckSiteKey) {
   appCheck = initializeAppCheck(firebaseApp, {
-    provider: new ReCaptchaV3Provider(appCheckSiteKey),
+    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
     isTokenAutoRefreshEnabled: true,
   });
 }
