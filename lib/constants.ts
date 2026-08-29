@@ -48,6 +48,10 @@ export const FREE_GENERATIONS_LIMIT = 5;
 // anonymous session (signInAnonymously, no friction) gets a fresh 5 free
 // generations — without these, the free tier is a scriptable, effectively
 // unlimited cost sink. See app/api/chat/route.ts, app/api/import/route.ts.
+// Chat: a truncation budget, not a hard reject — an oversized free-tier
+// request gets shrunk to a bounded preview (see truncateForFreeTier in
+// app/api/chat/route.ts) rather than failing outright. Import: still a hard
+// cap, since a file can't be meaningfully truncated without corrupting it.
 export const FREE_TIER_MAX_CHARS = 4000; // ~700 words of document+message content per free generation
 export const FREE_TIER_MAX_IMPORT_BYTES = 1 * 1024 * 1024; // 1MB, vs. 10MB for paid/BYOK imports
 export const FREE_TIER_RATE_LIMIT_PER_HOUR = 20; // per IP, backstop against session-reset farming
