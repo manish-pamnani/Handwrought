@@ -39,34 +39,35 @@ export const TIER_PRICE_IDS: Record<Tier, string> =
 export const PADDLE_CHECKOUT_ENABLED = process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_ENABLED === "true";
 
 // Free generations any guest gets against HandWrought's shared Gemini key
-// before being asked to upgrade. See lib/serverCredits.ts.
+// before being asked to upgrade — in units, not flat request count. A normal
+// request costs 1 unit; an oversized one (a whole-document action on a long
+// document) costs proportionally more, computed from request size against
+// FREE_TIER_MAX_CHARS/FREE_TIER_MAX_IMPORT_BYTES below. See lib/serverCredits.ts.
 export const FREE_GENERATIONS_LIMIT = 5;
 
 // Abuse guards on the free-tier path specifically (BYOK and paid tiers are
 // unaffected — they either cost the user their own key/quota or already
-// paid). A free generation is otherwise unbounded in size, and a fresh
-// anonymous session (signInAnonymously, no friction) gets a fresh 5 free
-// generations — without these, the free tier is a scriptable, effectively
-// unlimited cost sink. See app/api/chat/route.ts, app/api/import/route.ts.
-// Chat: a truncation budget, not a hard reject — an oversized free-tier
-// request gets shrunk to a bounded preview (see truncateForFreeTier in
-// app/api/chat/route.ts) rather than failing outright. Import: still a hard
-// cap, since a file can't be meaningfully truncated without corrupting it.
-export const FREE_TIER_MAX_CHARS = 4000; // ~700 words of document+message content per free generation
-export const FREE_TIER_MAX_IMPORT_BYTES = 1 * 1024 * 1024; // 1MB, vs. 10MB for paid/BYOK imports
+// paid, always sent in full, never metered by size). A free generation is
+// otherwise unbounded in size, and a fresh anonymous session
+// (signInAnonymously, no friction) gets a fresh 5 free generations —
+// without these, the free tier is a scriptable, effectively unlimited cost
+// sink. See app/api/chat/route.ts, app/api/import/route.ts.
+//
+// Content is never truncated or rejected outright for being oversized — a
+// free-tier request always gets sent to Gemini in full and gets a complete,
+// untruncated result. What scales instead is how many of the 5 free units
+// it costs: ceil(size / this constant), minimum 1. A request that would cost
+// more units than the guest has left is declined up front, with the exact
+// numbers, before anything is sent — not silently degraded.
+export const FREE_TIER_MAX_CHARS = 4000; // ~700 words of document+message content = 1 free-tier unit
+export const FREE_TIER_MAX_IMPORT_BYTES = 1 * 1024 * 1024; // 1MB of file = 1 free-tier unit, vs. 10MB for paid/BYOK
 export const FREE_TIER_RATE_LIMIT_PER_HOUR = 20; // per IP, backstop against session-reset farming
-// Output tokens cost 5-8x input tokens across the Gemini lineup — capping
-// input size alone still leaves a small prompt able to request an
-// arbitrarily long response. ~1,200 tokens is roughly 900 words, generous
-// for trying the product on a free generation.
-export const FREE_TIER_MAX_OUTPUT_TOKENS = 1200;
-// Imports reproduce the source document's own content, not an open-ended
-// reply — FREE_TIER_MAX_IMPORT_BYTES bounds the file, but a text-dense 1MB
-// file (e.g. a plain-text-heavy PDF) can still hold far more actual words
-// than the byte cap implies. Bounding output directly, rather than trusting
-// file size as a proxy for word count, is what actually caps the worst
-// case — generous enough for a genuine multi-page free-trial document.
-export const FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS = 3500;
+// Output tokens cost 5-8x input tokens across the Gemini lineup — this is
+// the per-unit output ceiling, scaled by the same units count as the input
+// side (units * this value) so a bigger, more-expensive request also gets
+// enough headroom to produce a complete result, not a cut-off one.
+export const FREE_TIER_MAX_OUTPUT_TOKENS = 1200; // ~900 words, per unit
+export const FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS = 3500; // per unit — imports reproduce the source content, not a short reply
 
 // continue-sentence feature disabled, collides with Expand
 // export const CONTINUE_SENTENCE_INSTRUCTION =

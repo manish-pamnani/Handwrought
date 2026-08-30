@@ -59,13 +59,17 @@ export async function consumeCredit(uid: string): Promise<number> {
 
 // Transactional increment so two rapid-fire requests from the same guest
 // can't both slip through while `freeGenerationsUsed` is still stale.
-export async function incrementUsage(uid: string): Promise<number> {
+// `units` lets a single oversized request (a whole-document action on a long
+// document) consume more than one "free generation" — see
+// app/api/chat/route.ts and app/api/import/route.ts, which compute units
+// from request size rather than always spending a flat 1.
+export async function incrementUsage(uid: string, units = 1): Promise<number> {
   const ref = getAdminDb().collection("users").doc(uid);
   return getAdminDb().runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     const current = typeof snap.data()?.freeGenerationsUsed === "number" ? snap.data()!.freeGenerationsUsed : 0;
-    const next = current + 1;
-    tx.set(ref, { freeGenerationsUsed: FieldValue.increment(1) }, { merge: true });
+    const next = current + units;
+    tx.set(ref, { freeGenerationsUsed: FieldValue.increment(units) }, { merge: true });
     return next;
   });
 }

@@ -183,6 +183,7 @@ export async function POST(request: Request) {
   let creditsRemaining: number | null = null;
   let shouldIncrementUsage = false;
   let shouldConsumeCredit = false;
+  let freeTierUnits = 1;
 
   if (userKey) {
     apiKey = userKey;
@@ -211,14 +212,21 @@ export async function POST(request: Request) {
       apiKey = sharedKey;
       shouldConsumeCredit = true;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
-      // Same abuse guards as /api/chat's free-tier branch — a free import
-      // is otherwise bounded only by MAX_FILE_BYTES (10MB), which is far
-      // more than a trial user needs and far more than free-tier cost
-      // should be exposed to. Paid tiers and BYOK keep the full 10MB.
-      if (file.size > FREE_TIER_MAX_IMPORT_BYTES) {
+      // Same model as /api/chat's free-tier branch: a large file isn't
+      // rejected or truncated — it's imported in full, it just costs more
+      // of the guest's 5 free units, proportional to size. Paid tiers and
+      // BYOK keep the full 10MB, never metered by size.
+      const remaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
+      freeTierUnits = Math.max(1, Math.ceil(file.size / FREE_TIER_MAX_IMPORT_BYTES));
+      if (freeTierUnits > remaining) {
         return NextResponse.json(
-          { error: "Free imports are capped at 1MB — upgrade to import larger files." },
-          { status: 400 }
+          {
+            error: `This file needs about ${freeTierUnits} free generations' worth of size — you have ${remaining} left. Try a smaller file, or upgrade for larger imports.`,
+            code: "insufficient_free_units",
+            unitsNeeded: freeTierUnits,
+            remaining,
+          },
+          { status: 402 }
         );
       }
 
@@ -232,7 +240,7 @@ export async function POST(request: Request) {
 
       apiKey = sharedKey;
       shouldIncrementUsage = true;
-      creditsRemaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
+      creditsRemaining = remaining;
     } else {
       return NextResponse.json(
         {
@@ -246,7 +254,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const maxOutputTokens = shouldIncrementUsage ? FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS : undefined;
+  const maxOutputTokens = shouldIncrementUsage ? FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS * freeTierUnits : undefined;
 
   let markdown: string;
   try {
@@ -278,7 +286,7 @@ export async function POST(request: Request) {
   if (shouldConsumeCredit) {
     creditsRemaining = await consumeCredit(uid);
   } else if (shouldIncrementUsage) {
-    const newCount = await incrementUsage(uid);
+    const newCount = await incrementUsage(uid, freeTierUnits);
     creditsRemaining = Math.max(0, FREE_GENERATIONS_LIMIT - newCount);
   }
 

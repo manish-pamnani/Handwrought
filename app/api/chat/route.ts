@@ -37,51 +37,12 @@ type RequestBody = {
   apiKey: string | null;
 };
 
-const FREE_TIER_MAX_MESSAGES = 6;
-const FREE_TIER_TRUNCATION_NOTE = "\n\n[…preview truncated — upgrade for full-length generations]";
-
-type FreeTierTruncation = {
-  document: string;
-  selectedText: string | null;
-  messages: ChatMessage[];
-  truncated: boolean;
-};
-
-// A guest hitting the free-tier size limit shouldn't just see "something
-// went wrong" — instead of rejecting the request outright, shrink it down to
-// a bounded preview and still generate something real. Degrades in order of
-// least to most essential: old conversation turns first (a new instruction
-// rarely needs the full back-and-forth), then background document context,
-// and selectedText (the actual thing being edited) last and least.
-function truncateForFreeTier(document: string, selectedText: string | null, messages: ChatMessage[]): FreeTierTruncation {
-  let truncated = false;
-
-  let trimmedMessages = messages;
-  if (messages.length > FREE_TIER_MAX_MESSAGES) {
-    trimmedMessages = messages.slice(-FREE_TIER_MAX_MESSAGES);
-    truncated = true;
-  }
-
-  let budget = FREE_TIER_MAX_CHARS - trimmedMessages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
-
-  let trimmedSelectedText = selectedText;
-  if (selectedText !== null) {
-    const selectedBudget = Math.max(0, Math.floor(budget * 0.7));
-    if (selectedText.length > selectedBudget) {
-      trimmedSelectedText = selectedText.slice(0, selectedBudget) + FREE_TIER_TRUNCATION_NOTE;
-      truncated = true;
-    }
-    budget -= trimmedSelectedText!.length;
-  }
-
-  let trimmedDocument = document;
-  const documentBudget = Math.max(0, budget);
-  if (document.length > documentBudget) {
-    trimmedDocument = document.slice(0, documentBudget) + FREE_TIER_TRUNCATION_NOTE;
-    truncated = true;
-  }
-
-  return { document: trimmedDocument, selectedText: trimmedSelectedText, messages: trimmedMessages, truncated };
+// A free-tier request is never truncated or rejected outright for size — it
+// always goes to Gemini in full and gets a complete result back. What scales
+// instead is how many of the 5 free units it costs (see lib/constants.ts).
+function freeTierUnitsFor(document: string, selectedText: string | null, messages: ChatMessage[]): number {
+  const chars = document.length + (selectedText?.length ?? 0) + messages.reduce((sum, m) => sum + (m.content?.length ?? 0), 0);
+  return Math.max(1, Math.ceil(chars / FREE_TIER_MAX_CHARS));
 }
 
 function buildContextPrompt(
@@ -204,10 +165,7 @@ export async function POST(req: Request) {
   let shouldIncrementUsage = false;
   let shouldConsumeCredit = false;
   let keySource: string;
-  let freeTierTruncated = false;
-  let effectiveMessages = messages;
-  let effectiveDocument = document;
-  let effectiveSelectedText = selectedText ?? null;
+  let freeTierUnits = 1;
 
   if (userKey) {
     // BYOK — unlimited, full quality, runs against the user's own quota.
@@ -241,17 +199,25 @@ export async function POST(req: Request) {
       apiKey = sharedKey;
       shouldConsumeCredit = true;
     } else if (usage.freeGenerationsUsed < usage.freeGenerationsLimit) {
-      // Free generations are otherwise unbounded in size, and a fresh
-      // anonymous session (no signup friction) gets a fresh 5 of them —
-      // rather than rejecting an oversized request outright (a guest typing
-      // into chat shouldn't just hit a wall), shrink what's sent to Gemini
-      // down to a bounded preview and still generate something real. Paid
-      // tiers and BYOK are unaffected, sent in full either way.
-      const trimmed = truncateForFreeTier(document, selectedText ?? null, messages);
-      effectiveDocument = trimmed.document;
-      effectiveSelectedText = trimmed.selectedText;
-      effectiveMessages = trimmed.messages;
-      freeTierTruncated = trimmed.truncated;
+      // A whole-document action on a long document doesn't get truncated —
+      // it goes to Gemini in full and gets a complete result — it just costs
+      // more of the guest's 5 free units, proportional to size. Declined up
+      // front with the real numbers if they don't have enough left, rather
+      // than silently degraded. Paid tiers and BYOK are unaffected, sent in
+      // full and never metered by size either way.
+      const remaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
+      freeTierUnits = freeTierUnitsFor(document, selectedText ?? null, messages);
+      if (freeTierUnits > remaining) {
+        return NextResponse.json(
+          {
+            error: `This request needs about ${freeTierUnits} free generations' worth of length — you have ${remaining} left. Try a shorter selection, or upgrade for full-length generations.`,
+            code: "insufficient_free_units",
+            unitsNeeded: freeTierUnits,
+            remaining,
+          },
+          { status: 402 }
+        );
+      }
 
       // Backstop against the same abuse resetting anonymous sessions to keep
       // re-claiming free generations from one IP — independent of uid.
@@ -265,7 +231,7 @@ export async function POST(req: Request) {
 
       apiKey = sharedKey;
       shouldIncrementUsage = true;
-      creditsRemaining = usage.freeGenerationsLimit - usage.freeGenerationsUsed;
+      creditsRemaining = remaining;
     } else {
       return NextResponse.json(
         {
@@ -288,21 +254,21 @@ export async function POST(req: Request) {
     const raw = await callGeminiWithRotation((model) => {
       usedModel = model;
       return callGemini(
-        effectiveMessages,
-        effectiveDocument,
-        effectiveSelectedText,
+        messages,
+        document,
+        selectedText ?? null,
         cursorContextBefore ?? "",
         cursorContextAfter ?? "",
         apiKey,
         model,
-        shouldIncrementUsage ? FREE_TIER_MAX_OUTPUT_TOKENS : undefined
+        shouldIncrementUsage ? FREE_TIER_MAX_OUTPUT_TOKENS * freeTierUnits : undefined
       );
     });
 
     if (shouldConsumeCredit) {
       creditsRemaining = await consumeCredit(uid);
     } else if (shouldIncrementUsage) {
-      const newCount = await incrementUsage(uid);
+      const newCount = await incrementUsage(uid, freeTierUnits);
       creditsRemaining = Math.max(0, FREE_GENERATIONS_LIMIT - newCount);
     }
 
@@ -317,7 +283,7 @@ export async function POST(req: Request) {
         hasSelection: selectedText !== null,
         selectionChars: selectedText?.length ?? 0,
         documentChars: document.length,
-        freeTierTruncated,
+        freeTierUnits: shouldIncrementUsage ? freeTierUnits : null,
         suggestionMode: parsed.suggestion?.mode ?? null,
       })
     );
@@ -328,17 +294,13 @@ export async function POST(req: Request) {
     // didn't have. Flags it without blocking the response, so we get a
     // model/ratio/preview to grep for in logs instead of relying on user
     // screenshots to diagnose it after the fact.
-    if (parsed.suggestion?.mode === "replace_selection" && effectiveSelectedText !== null) {
-      // Compared against effectiveSelectedText (post-truncation), not the
-      // original — the model only ever saw the truncated version on a
-      // free-tier request, so comparing against the untruncated original
-      // would misfire this tripwire on every truncated selection.
+    if (parsed.suggestion?.mode === "replace_selection" && selectedText !== null) {
       const HEADING_RE = /^#{1,6}\s/m;
       const LENGTH_RATIO_THRESHOLD = 3;
-      const selectionHasHeading = HEADING_RE.test(effectiveSelectedText);
+      const selectionHasHeading = HEADING_RE.test(selectedText);
 
       parsed.suggestion.options.forEach((option, optionIndex) => {
-        const lengthRatio = effectiveSelectedText!.length > 0 ? option.length / effectiveSelectedText!.length : Infinity;
+        const lengthRatio = selectedText.length > 0 ? option.length / selectedText.length : Infinity;
         const introducedHeading = HEADING_RE.test(option) && !selectionHasHeading;
         if (introducedHeading || lengthRatio > LENGTH_RATIO_THRESHOLD) {
           console.warn(
@@ -347,11 +309,11 @@ export async function POST(req: Request) {
               uid,
               model: usedModel,
               optionIndex,
-              selectionChars: effectiveSelectedText!.length,
+              selectionChars: selectedText.length,
               optionChars: option.length,
               lengthRatio: Number.isFinite(lengthRatio) ? Number(lengthRatio.toFixed(2)) : null,
               introducedHeading,
-              selectionPreview: effectiveSelectedText!.slice(0, 120),
+              selectionPreview: selectedText.slice(0, 120),
               optionPreview: option.slice(0, 120),
             })
           );
@@ -359,7 +321,7 @@ export async function POST(req: Request) {
       });
     }
 
-    const response = NextResponse.json({ ...parsed, creditsRemaining, ...(freeTierTruncated && { truncated: true }) });
+    const response = NextResponse.json({ ...parsed, creditsRemaining });
     if (process.env.NODE_ENV !== "production") {
       response.headers.set("X-Gemini-Key-Source", keySource);
     }
