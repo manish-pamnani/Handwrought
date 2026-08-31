@@ -221,7 +221,7 @@ export async function POST(request: Request) {
       if (freeTierUnits > remaining) {
         return NextResponse.json(
           {
-            error: `This file needs about ${freeTierUnits} free generations' worth of size — you have ${remaining} left. Try a smaller file, or upgrade for larger imports.`,
+            error: `This file needs about ${freeTierUnits} free generations' worth of size — you have ${remaining} left. Try a smaller file, or upgrade — paid credits are flat, 1 credit per import no matter the size.`,
             code: "insufficient_free_units",
             unitsNeeded: freeTierUnits,
             remaining,

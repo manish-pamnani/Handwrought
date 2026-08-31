@@ -32,7 +32,8 @@ export default function PaywallModal({ open, onClose }: PaywallModalProps) {
         <h2 className="font-serif text-lg font-semibold text-[var(--color-ink)]">You&apos;re out of free tries</h2>
         <p className="mt-1 mb-5 font-sans text-[13.5px] leading-relaxed text-[var(--color-ink-muted)]">
           Get credits — a one-time payment, no subscription, with a monthly credit allotment that refreshes
-          for as long as you use HandWrought.
+          for as long as you use HandWrought. Unlike the free tries, every paid credit is flat: 1 credit per
+          generation, any length, no size limit.
         </p>
 
         <Link

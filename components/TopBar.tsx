@@ -109,7 +109,7 @@ export default function TopBar({
             >
               {tier
                 ? `Guest · ${creditsRemaining} ${creditsRemaining === 1 ? "credit" : "credits"} left`
-                : `Guest · ${creditsRemaining} free ${creditsRemaining === 1 ? "credit" : "credits"} left`}
+                : `Guest · ${creditsRemaining} free ${creditsRemaining === 1 ? "generation" : "generations"} left`}
             </span>
 
             {/* pt-2 (not mt-2) keeps the gap above the card inside the hoverable
@@ -117,18 +117,21 @@ export default function TopBar({
                 cursor reaches the button below */}
             <div className="pointer-events-none absolute right-0 top-full z-50 w-64 pt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
               <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-3 shadow-lg">
-                <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
                 {tier ? (
-                  <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                    You're on the ${tier} credit tier — {creditsRemaining} credits left this cycle, refreshing
-                    automatically every 30 days.
-                  </p>
+                  <>
+                    <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
+                    <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
+                      You&apos;re on the ${tier} credit tier — {creditsRemaining} credits left this cycle, refreshing
+                      automatically every 30 days. Every generation is flat: 1 credit, any length.
+                    </p>
+                  </>
                 ) : (
                   <>
+                    <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How free generations work</p>
                     <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                      Every AI generation — writing an outline, rewriting the whole document, or a quick edit on a
-                      selection — uses 1 credit. Importing a PDF or Word doc also uses 1 credit (.txt/.md imports are
-                      free). Guests get {FREE_GENERATIONS_LIMIT} free, no card required.
+                      Guests get {FREE_GENERATIONS_LIMIT} free generations, no card required — a short edit uses 1,
+                      a whole-document action on a longer piece uses more, based on length. Paid credits don&apos;t
+                      work this way: every generation is flat, 1 credit no matter the length.
                     </p>
                     <Link
                       href="/checkout"

@@ -210,7 +210,7 @@ export async function POST(req: Request) {
       if (freeTierUnits > remaining) {
         return NextResponse.json(
           {
-            error: `This request needs about ${freeTierUnits} free generations' worth of length — you have ${remaining} left. Try a shorter selection, or upgrade for full-length generations.`,
+            error: `This request needs about ${freeTierUnits} free generations' worth of length — you have ${remaining} left. Try a shorter selection, or upgrade — paid credits are flat, 1 credit per generation no matter the length.`,
             code: "insufficient_free_units",
             unitsNeeded: freeTierUnits,
             remaining,
@@ -235,7 +235,7 @@ export async function POST(req: Request) {
     } else {
       return NextResponse.json(
         {
-          error: "You've used your free generations.",
+          error: "You've used your free generations — upgrade for flat, 1-credit-per-generation access with no length limit.",
           code: "credits_exhausted",
           freeGenerationsUsed: usage.freeGenerationsUsed,
           freeGenerationsLimit: usage.freeGenerationsLimit,
