@@ -30,6 +30,19 @@ const LIVE_TIER_PRICE_IDS: Record<Tier, string> = {
 export const TIER_PRICE_IDS: Record<Tier, string> =
   process.env.NEXT_PUBLIC_PADDLE_ENV === "production" ? LIVE_TIER_PRICE_IDS : SANDBOX_TIER_PRICE_IDS;
 
+// Launch early-bird discount — 25% off, capped at the first 200 redemptions,
+// restricted to the three tier prices above (see scripts/create-early-bird-discount.ts).
+// Same credits, same list price for everyone after the 200 — a real,
+// time/quantity-limited scarcity discount, not a permanent price or credit
+// change. Passed as Paddle.Checkout.open()'s discountId so it's applied
+// automatically; Paddle's own usage_limit stops it once 200 are redeemed, no
+// app-side tracking needed. Live ID still empty — create it against the live
+// catalog the same way before going live, same pattern as TIER_PRICE_IDS.
+const SANDBOX_EARLY_BIRD_DISCOUNT_ID = "dsc_01m1b66xvvykwervayxbjztfx2";
+const LIVE_EARLY_BIRD_DISCOUNT_ID = "";
+export const EARLY_BIRD_DISCOUNT_ID =
+  process.env.NEXT_PUBLIC_PADDLE_ENV === "production" ? LIVE_EARLY_BIRD_DISCOUNT_ID : SANDBOX_EARLY_BIRD_DISCOUNT_ID;
+
 // Explicit go-live switch for the Paddle checkout UI, separate from having
 // price IDs populated — Paddle also requires the sending domain to be
 // verified/approved in the dashboard before checkout can safely go live.

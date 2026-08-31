@@ -6,7 +6,7 @@ import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
 import { useAuth } from "@/lib/AuthContext";
-import { PADDLE_CHECKOUT_ENABLED, TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
+import { EARLY_BIRD_DISCOUNT_ID, PADDLE_CHECKOUT_ENABLED, TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
 
 const TIERS: Tier[] = ["9", "19", "29"];
 
@@ -107,10 +107,20 @@ function WaitlistCheckout() {
 }
 
 function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Paddle | null; userEmail: string | null | undefined; userUid: string | undefined }) {
+  const earlyBirdActive = Boolean(EARLY_BIRD_DISCOUNT_ID);
+  // Shown up front so the discount is obvious before checkout even opens —
+  // Paddle applies the real one server-side; this is just the same 25% off
+  // for display. Not shown at all once the live discount hasn't been set up
+  // yet (EARLY_BIRD_DISCOUNT_ID empty) or after Paddle's own 200-redemption
+  // cap is hit, at which point Checkout.open() just silently stops applying
+  // it and the customer pays the listed price — no app-side tracking needed.
+  const earlyBirdPrice = (Number(tier) * 0.75).toFixed(2).replace(/\.00$/, "");
+
   function openCheckout() {
     if (!paddle) return;
     paddle.Checkout.open({
       items: [{ priceId: TIER_PRICE_IDS[tier], quantity: 1 }],
+      ...(earlyBirdActive && { discountId: EARLY_BIRD_DISCOUNT_ID }),
       ...(userEmail && { customer: { email: userEmail } }),
       // Threaded through to the transaction.completed webhook so it knows
       // which account to grant credits to. Guest checkouts (no signed-in
@@ -120,10 +130,22 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
   }
 
   return (
-    <div className="flex flex-1 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+    <div className="relative flex flex-1 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
+      {earlyBirdActive && (
+        <span className="absolute -top-2.5 left-5 rounded-full bg-[var(--color-accent)] px-2.5 py-0.5 font-sans text-[11px] font-semibold text-white">
+          Founding Member — 25% off
+        </span>
+      )}
       <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Credits</p>
       <p className="mt-1 font-serif text-3xl font-semibold text-[var(--color-ink)]">
-        ${tier}
+        {earlyBirdActive ? (
+          <>
+            ${earlyBirdPrice}
+            <span className="ml-1.5 font-sans text-base font-normal text-[var(--color-ink-muted)] line-through">${tier}</span>
+          </>
+        ) : (
+          <>${tier}</>
+        )}
         <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
       </p>
       <p className="mt-1 font-sans text-[13px] text-[var(--color-ink-muted)]">
@@ -212,6 +234,18 @@ function PaddleCheckout() {
           you use HandWrought.
         </p>
       </div>
+
+      {Boolean(EARLY_BIRD_DISCOUNT_ID) && (
+        <div className="w-full max-w-3xl rounded-lg border border-[var(--color-accent-tint-border)] bg-[var(--color-accent-tint)] px-4 py-3 text-center">
+          <p className="font-sans text-[13px] font-medium text-[var(--color-ink)]">
+            🎉 Founding Member pricing — 25% off every tier, first 200 customers only.
+          </p>
+          <p className="mt-0.5 font-sans text-xs text-[var(--color-ink-muted)]">
+            Same credits, same tiers — just the launch price. Once the first 200 are gone, everyone pays the
+            regular price shown above.
+          </p>
+        </div>
+      )}
 
       {checkoutError && (
         <p className="font-sans text-xs text-red-600" role="alert">
