@@ -3,7 +3,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
-import { CHECKOUT_READY, EARLY_BIRD_DISCOUNT_ID, TIERS, TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
+import {
+  CHECKOUT_READY,
+  EARLY_BIRD_DISCOUNT_ID,
+  TIERS,
+  TIER_CREDITS,
+  TIER_NAMES,
+  TIER_PRICE_IDS,
+  TIER_TAGLINES,
+  type Tier,
+} from "@/lib/constants";
 import PlansWaitlist from "./PlansWaitlist";
 
 const POPULAR_TIER: Tier = "19";
@@ -21,13 +30,13 @@ export type PlansPanelProps = {
   /** called when the success screen's action button is pressed, in addition to resetting the panel back to the plan list */
   onDone?: () => void;
   doneLabel?: string;
-  /** rendered above the billing-cycle tabs — omitted once the success screen is showing */
+  /** rendered above the tier cards — omitted once the success screen is showing */
   header?: ReactNode;
 };
 
-// The tier cards + billing-cycle tabs + Paddle checkout wiring, shared by
-// the PlansModal overlay and the inline "Monthly plans" section on
-// /plans-and-credits so both stay in sync with one implementation.
+// The tier cards + Paddle checkout wiring, shared by the PlansModal overlay
+// and the inline "Credit packs" section on /plans-and-credits so both stay
+// in sync with one implementation.
 export default function PlansPanel({
   userEmail,
   userUid,
@@ -37,7 +46,6 @@ export default function PlansPanel({
   doneLabel = "Done",
   header,
 }: PlansPanelProps) {
-  const [tab, setTab] = useState<"monthly" | "annual">("monthly");
   const [paddle, setPaddle] = useState<Paddle | null>(null);
   const [checkoutData, setCheckoutData] = useState<CheckoutEventsData | null>(null);
   const [complete, setComplete] = useState(false);
@@ -127,31 +135,6 @@ export default function PlansPanel({
     <div>
       {header}
 
-      <div className="mt-5 flex justify-center">
-        <div className="inline-flex rounded-full border border-[var(--color-border)] bg-[var(--color-paper-inset)] p-1">
-          {(["monthly", "annual"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`rounded-full px-4 py-1.5 font-sans text-[13px] font-medium capitalize transition-colors ${
-                tab === t
-                  ? "bg-[var(--color-paper)] text-[var(--color-ink)] shadow-sm"
-                  : "text-[var(--color-ink-muted)] hover:text-[var(--color-ink)]"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {tab === "annual" && (
-        <p className="mt-3 text-center font-sans text-xs text-[var(--color-ink-muted)]">
-          Annual billing is on the way — pricing below is the same one-time tier either tab.
-        </p>
-      )}
-
       {earlyBirdActive && (
         <p className="mt-3 text-center font-sans text-[12.5px] font-medium text-[var(--color-accent)]">
           🎉 Founding Member pricing — 25% off, first 200 customers only.
@@ -184,8 +167,9 @@ export default function PlansPanel({
                     Popular
                   </span>
                 )}
-                <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">${tier} pack</p>
-                <p className="mt-1 font-serif text-3xl font-semibold text-[var(--color-ink)]">
+                <p className="font-sans text-base font-semibold text-[var(--color-ink)]">{TIER_NAMES[tier]}</p>
+                <p className="font-sans text-xs text-[var(--color-ink-muted)]">{TIER_TAGLINES[tier]}</p>
+                <p className="mt-2 font-serif text-3xl font-semibold text-[var(--color-ink)]">
                   {earlyBirdActive ? (
                     <>
                       ${earlyBirdPrice}

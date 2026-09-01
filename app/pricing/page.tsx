@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { FREE_GENERATIONS_LIMIT, TIER_CREDITS, type Tier } from "@/lib/constants";
+import { FREE_GENERATIONS_LIMIT, TIER_CREDITS, TIER_NAMES, TIER_TAGLINES, TIERS } from "@/lib/constants";
 
 export const metadata: Metadata = { title: "Pricing — HandWrought" };
-
-const TIERS: Tier[] = ["9", "19", "29"];
 
 export default function PricingPage() {
   return (
@@ -48,8 +46,9 @@ export default function PricingPage() {
               key={tier}
               className="flex flex-1 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5"
             >
-              <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Credits</p>
-              <p className="mt-1 font-serif text-3xl font-semibold text-[var(--color-ink)]">
+              <p className="font-sans text-base font-semibold text-[var(--color-ink)]">{TIER_NAMES[tier]}</p>
+              <p className="font-sans text-xs text-[var(--color-ink-muted)]">{TIER_TAGLINES[tier]}</p>
+              <p className="mt-2 font-serif text-3xl font-semibold text-[var(--color-ink)]">
                 ${tier}
                 <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
               </p>

@@ -7,7 +7,16 @@ import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
 import { useAuth } from "@/lib/AuthContext";
 import { useAccess } from "@/lib/useAccess";
-import { CHECKOUT_READY, EARLY_BIRD_DISCOUNT_ID, TIER_CREDITS, TIER_PRICE_IDS, TIERS, type Tier } from "@/lib/constants";
+import {
+  CHECKOUT_READY,
+  EARLY_BIRD_DISCOUNT_ID,
+  TIER_CREDITS,
+  TIER_NAMES,
+  TIER_PRICE_IDS,
+  TIER_TAGLINES,
+  TIERS,
+  type Tier,
+} from "@/lib/constants";
 import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import UserMenu from "@/components/UserMenu";
 
@@ -131,8 +140,9 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
           Founding Member — 25% off
         </span>
       )}
-      <p className="font-sans text-sm font-medium text-[var(--color-ink-muted)]">Credits</p>
-      <p className="mt-1 font-serif text-3xl font-semibold text-[var(--color-ink)]">
+      <p className="font-sans text-base font-semibold text-[var(--color-ink)]">{TIER_NAMES[tier]}</p>
+      <p className="font-sans text-xs text-[var(--color-ink-muted)]">{TIER_TAGLINES[tier]}</p>
+      <p className="mt-2 font-serif text-3xl font-semibold text-[var(--color-ink)]">
         {earlyBirdActive ? (
           <>
             ${earlyBirdPrice}
@@ -166,7 +176,7 @@ function CurrentPlanCard() {
     <div className="flex w-full max-w-3xl items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3">
       <div>
         <p className="font-sans text-sm font-medium text-[var(--color-ink)]">
-          {access.tier ? `$${access.tier} credit pack` : "No credits purchased yet"}
+          {access.tier ? `${TIER_NAMES[access.tier]} pack` : "No credits purchased yet"}
         </p>
         <p className="mt-0.5 font-sans text-xs text-[var(--color-ink-muted)]">
           {access.tier

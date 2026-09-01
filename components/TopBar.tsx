@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState, type RefObject } from "react";
 import type { User } from "firebase/auth";
 import { countWords } from "@/lib/wordCount";
-import { FREE_GENERATIONS_LIMIT, type Tier } from "@/lib/constants";
+import { FREE_GENERATIONS_LIMIT, TIER_NAMES, type Tier } from "@/lib/constants";
 import type { DocumentPanelHandle } from "./DocumentPanel";
 import UserMenu from "./UserMenu";
 
@@ -123,8 +123,9 @@ export default function TopBar({
                   <>
                     <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
                     <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                      You&apos;re on the ${tier} credit pack — {creditsRemaining} credits left. They never expire and
-                      don&apos;t reset; buy more anytime you run low. Every generation is flat: 1 credit, any length.
+                      You&apos;re on the {tier && TIER_NAMES[tier]} pack — {creditsRemaining} credits left. They never
+                      expire and don&apos;t reset; buy more anytime you run low. Every generation is flat: 1 credit, any
+                      length.
                     </p>
                   </>
                 ) : (

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import UserMenu from "@/components/UserMenu";
-import type { Tier } from "@/lib/constants";
+import { TIER_NAMES, type Tier } from "@/lib/constants";
 
 type UsageEvent = {
   id: string;
@@ -129,7 +129,7 @@ function UsageContent() {
           <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-4">
             <p className="font-sans text-xs text-[var(--color-ink-muted)]">Plan</p>
             <p className="mt-1 font-sans text-sm font-medium text-[var(--color-ink)]">
-              {data.tier ? `$${data.tier} pack` : "Free"}
+              {data.tier ? `${TIER_NAMES[data.tier]} pack` : "Free"}
             </p>
           </div>
         </div>

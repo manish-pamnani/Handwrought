@@ -9,7 +9,7 @@ import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import UserMenu from "@/components/UserMenu";
 import PlansModal from "@/components/PlansModal";
 import PlansPanel from "@/components/PlansPanel";
-import { TIER_CREDITS } from "@/lib/constants";
+import { TIER_CREDITS, TIER_NAMES } from "@/lib/constants";
 
 function CreditsIcon() {
   return (
@@ -94,11 +94,11 @@ function PlansAndCreditsContent() {
         <div className="mt-4 flex items-center justify-between rounded-xl border border-[var(--color-border)] bg-[var(--color-paper)] p-5">
           <div>
             <p className="font-sans text-sm font-medium text-[var(--color-ink)]">
-              {tier ? `$${tier} credit pack` : "Free"}
+              {tier ? `${TIER_NAMES[tier]} pack` : "Free"}
             </p>
             <p className="mt-0.5 font-sans text-xs text-[var(--color-ink-muted)]">
               {tier
-                ? `You've bought the $${tier} pack (${TIER_CREDITS[tier]} credits) — buy another pack anytime, it stacks.`
+                ? `You've bought the ${TIER_NAMES[tier]} pack (${TIER_CREDITS[tier]} credits) — buy another pack anytime, it stacks.`
                 : "You are currently on the free plan."}
             </p>
           </div>

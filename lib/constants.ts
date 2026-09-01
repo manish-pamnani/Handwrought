@@ -2,15 +2,30 @@ export const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese"
 
 export const TONES = ["Professional", "Casual", "Persuasive", "Friendly", "Confident", "Formal"];
 
-// Credits: a one-time purchase that unlocks a monthly-refreshing
-// credit allotment, forever — not a recurring subscription charge. See
-// lib/serverCredits.ts for the reset logic.
+// Credits: a one-time purchase, not a recurring subscription charge. Credits
+// never expire and never auto-reset — buying again adds to whatever's left,
+// rather than replacing it. See lib/serverCredits.ts (grantTier/getUsage).
 export type Tier = "9" | "19" | "29";
 
 export const TIER_CREDITS: Record<Tier, number> = {
   "9": 100,
   "19": 200,
   "29": 400,
+};
+
+// Display names/taglines for the plans UI (checkout, PlansPanel, account
+// pages) — purely cosmetic, keyed the same as TIER_CREDITS/TIER_PRICE_IDS so
+// every surface that names a tier stays in sync with one source of truth.
+export const TIER_NAMES: Record<Tier, string> = {
+  "9": "Lite",
+  "19": "Pro",
+  "29": "Studio",
+};
+
+export const TIER_TAGLINES: Record<Tier, string> = {
+  "9": "For testing ideas",
+  "19": "For regular writing",
+  "29": "For heavy, daily writing",
 };
 
 // Paddle catalog IDs are environment-scoped (sandbox and live are fully separate
