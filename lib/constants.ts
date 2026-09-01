@@ -28,6 +28,28 @@ export const TIER_TAGLINES: Record<Tier, string> = {
   "29": "For heavy, daily writing",
 };
 
+// Single source of truth for the feature bullets shown on every plan card
+// (checkout, PlansPanel, /pricing) — see components/TierFeatureList.tsx for
+// the shared markup that renders these. Kept here instead of duplicated in
+// each page so the three surfaces can't drift out of sync with each other.
+export function tierFeatures(tier: Tier): string[] {
+  // Both figures are computed against TIER_CREDITS, not hand-typed — Pro
+  // (200) is exactly 2x Lite (100) = 100% more; Studio (400) is exactly 4x
+  // Lite (100) = 300% more. Both compare against Lite specifically (not
+  // "the tier below") so the numbers stay exact if TIER_CREDITS ever changes.
+  const usageComparison =
+    tier === "19" || tier === "29"
+      ? `${Math.round(((TIER_CREDITS[tier] - TIER_CREDITS["9"]) / TIER_CREDITS["9"]) * 100)}% more usage limit than Lite`
+      : null;
+
+  return [
+    `${TIER_CREDITS[tier]} credits — all yours, no expiration`,
+    "1 credit = 1 AI generation (outline, rewrite, or edit)",
+    "No subscription — buy more anytime you run low",
+    ...(usageComparison ? [usageComparison] : []),
+  ];
+}
+
 // Paddle catalog IDs are environment-scoped (sandbox and live are fully separate
 // accounts) — sandbox seeded via scripts/seed-paddle-tiers.ts. Live IDs are
 // still empty; populate them the same way against a live Paddle API key before

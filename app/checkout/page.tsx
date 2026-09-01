@@ -10,7 +10,6 @@ import { useAccess } from "@/lib/useAccess";
 import {
   CHECKOUT_READY,
   EARLY_BIRD_DISCOUNT_ID,
-  TIER_CREDITS,
   TIER_NAMES,
   TIER_PRICE_IDS,
   TIER_TAGLINES,
@@ -19,6 +18,7 @@ import {
 } from "@/lib/constants";
 import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import UserMenu from "@/components/UserMenu";
+import TierFeatureList from "@/components/TierFeatureList";
 
 const inputClasses =
   "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-2 font-sans text-[13px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-tint)]";
@@ -153,9 +153,7 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
         )}
         <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
       </p>
-      <p className="mt-1 font-sans text-[13px] text-[var(--color-ink-muted)]">
-        {TIER_CREDITS[tier]} credits — never expire, buy more anytime
-      </p>
+      <TierFeatureList tier={tier} />
       <button
         type="button"
         onClick={openCheckout}

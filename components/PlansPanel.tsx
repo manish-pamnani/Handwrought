@@ -3,17 +3,9 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
-import {
-  CHECKOUT_READY,
-  EARLY_BIRD_DISCOUNT_ID,
-  TIERS,
-  TIER_CREDITS,
-  TIER_NAMES,
-  TIER_PRICE_IDS,
-  TIER_TAGLINES,
-  type Tier,
-} from "@/lib/constants";
+import { CHECKOUT_READY, EARLY_BIRD_DISCOUNT_ID, TIERS, TIER_NAMES, TIER_PRICE_IDS, TIER_TAGLINES, type Tier } from "@/lib/constants";
 import PlansWaitlist from "./PlansWaitlist";
+import TierFeatureList from "./TierFeatureList";
 
 const POPULAR_TIER: Tier = "19";
 
@@ -182,35 +174,8 @@ export default function PlansPanel({
                   )}
                   <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
                 </p>
-                <p className="mt-1 font-sans text-[13px] font-medium text-[var(--color-ink)]">
-                  {TIER_CREDITS[tier]} credits
-                </p>
 
-                <ul className="mt-4 flex flex-1 flex-col gap-2">
-                  {[
-                    "Never expire — use them whenever you like",
-                    "1 credit = 1 AI generation (outline, rewrite, or edit)",
-                    "Importing a PDF or Word doc uses 1 credit",
-                    "No subscription — buy more anytime you run low",
-                  ].map((feature) => (
-                    <li
-                      key={feature}
-                      className="flex items-start gap-2 font-sans text-[12.5px] text-[var(--color-ink-muted)]"
-                    >
-                      <svg
-                        viewBox="0 0 16 16"
-                        className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.75"
-                        aria-hidden="true"
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 8.5l3 3 6-7" />
-                      </svg>
-                      {feature}
-                    </li>
-                  ))}
-                </ul>
+                <TierFeatureList tier={tier} />
 
                 <button
                   type="button"

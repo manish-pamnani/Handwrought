@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { FREE_GENERATIONS_LIMIT, TIER_CREDITS, TIER_NAMES, TIER_TAGLINES, TIERS } from "@/lib/constants";
+import { FREE_GENERATIONS_LIMIT, TIER_NAMES, TIER_TAGLINES, TIERS } from "@/lib/constants";
+import TierFeatureList from "@/components/TierFeatureList";
 
 export const metadata: Metadata = { title: "Pricing — HandWrought" };
 
@@ -52,9 +53,7 @@ export default function PricingPage() {
                 ${tier}
                 <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
               </p>
-              <p className="mt-1 font-sans text-[13px] text-[var(--color-ink-muted)]">
-                {TIER_CREDITS[tier]} credits — never expire, buy more anytime
-              </p>
+              <TierFeatureList tier={tier} />
             </div>
           ))}
         </div>
