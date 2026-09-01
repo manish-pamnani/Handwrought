@@ -51,6 +51,14 @@ export const EARLY_BIRD_DISCOUNT_ID =
 // done and the live env vars below are filled in.
 export const PADDLE_CHECKOUT_ENABLED = process.env.NEXT_PUBLIC_PADDLE_CHECKOUT_ENABLED === "true";
 
+export const TIERS: Tier[] = ["9", "19", "29"];
+
+// Requires the explicit go-live switch above *and* real price IDs for every
+// tier — guards against shipping a broken checkout if live IDs haven't been
+// populated yet. Single source of truth shared by the /checkout page and the
+// PlansModal so both fall back to the waitlist identically.
+export const CHECKOUT_READY = PADDLE_CHECKOUT_ENABLED && TIERS.every((tier) => TIER_PRICE_IDS[tier]);
+
 // Free generations any guest gets against HandWrought's shared Gemini key
 // before being asked to upgrade — in units, not flat request count. A normal
 // request costs 1 unit; an oversized one (a whole-document action on a long

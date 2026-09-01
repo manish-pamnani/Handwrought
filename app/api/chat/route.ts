@@ -2,14 +2,14 @@ import { NextResponse } from "next/server";
 import { parseAssistantReply } from "@/lib/suggestionParser";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
-import { getUsage, incrementUsage, consumeCredit } from "@/lib/serverCredits";
+import { getUsage, incrementUsage, consumeCredit, logUsageEvent } from "@/lib/serverCredits";
 import {
   FREE_GENERATIONS_LIMIT,
   FREE_TIER_MAX_CHARS,
   FREE_TIER_MAX_OUTPUT_TOKENS,
   FREE_TIER_RATE_LIMIT_PER_HOUR,
 } from "@/lib/constants";
-import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
+import { callGeminiWithRotation, extractGeminiUsage, type GeminiModel, type GeminiUsage } from "@/lib/geminiModels";
 import { verifyAppCheck } from "@/lib/appCheck";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import type { ChatMessage } from "@/lib/types";
@@ -80,7 +80,7 @@ async function callGemini(
   apiKey: string,
   model: GeminiModel,
   maxOutputTokens?: number
-): Promise<string> {
+): Promise<{ text: string; usage: GeminiUsage }> {
   // The system instruction carries the full document for tone/voice context,
   // which on smaller models can dilute or outweigh the (comparatively tiny)
   // selection note also living in that same block — the model ends up
@@ -123,7 +123,7 @@ async function callGemini(
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   if (!text) throw new Error("Gemini returned an empty response.");
-  return text;
+  return { text, usage: extractGeminiUsage(data) };
 }
 
 export async function POST(req: Request) {
@@ -189,7 +189,7 @@ export async function POST(req: Request) {
       if (usage.creditsRemaining <= 0) {
         return NextResponse.json(
           {
-            error: "You've used all your credits for this cycle. They'll refresh in your next 30-day cycle.",
+            error: "You've used all your credits — buy more anytime to keep generating.",
             code: "credits_exhausted",
             creditsRemaining: 0,
           },
@@ -251,7 +251,7 @@ export async function POST(req: Request) {
     // once callGeminiWithRotation resolves it holds whichever model actually
     // served the winning attempt (calls are sequential, never concurrent).
     let usedModel: GeminiModel | null = null;
-    const raw = await callGeminiWithRotation((model) => {
+    const { text: raw, usage: geminiUsage } = await callGeminiWithRotation((model) => {
       usedModel = model;
       return callGemini(
         messages,
@@ -267,9 +267,11 @@ export async function POST(req: Request) {
 
     if (shouldConsumeCredit) {
       creditsRemaining = await consumeCredit(uid);
+      await logUsageEvent(uid, "chat", "credit", usedModel ? { model: usedModel, tokens: geminiUsage } : undefined);
     } else if (shouldIncrementUsage) {
       const newCount = await incrementUsage(uid, freeTierUnits);
       creditsRemaining = Math.max(0, FREE_GENERATIONS_LIMIT - newCount);
+      await logUsageEvent(uid, "chat", "free", usedModel ? { model: usedModel, tokens: geminiUsage } : undefined);
     }
 
     const parsed = parseAssistantReply(raw);
@@ -280,6 +282,8 @@ export async function POST(req: Request) {
         uid,
         model: usedModel,
         keySource,
+        promptTokens: geminiUsage.promptTokens,
+        outputTokens: geminiUsage.outputTokens,
         hasSelection: selectedText !== null,
         selectionChars: selectedText?.length ?? 0,
         documentChars: document.length,

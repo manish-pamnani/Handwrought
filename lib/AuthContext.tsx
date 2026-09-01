@@ -7,6 +7,10 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   linkWithCredential,
+  linkWithPopup,
+  signInWithPopup,
+  getAdditionalUserInfo,
+  GoogleAuthProvider,
   EmailAuthProvider,
   signOut,
   type User,
@@ -14,11 +18,15 @@ import {
 import { auth } from "@/lib/firebase";
 import { trackSignupCompleted } from "@/lib/analytics";
 
+const googleProvider = new GoogleAuthProvider();
+
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
+  signUpWithGoogle: () => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signInGuest: () => Promise<void>;
   signOutUser: () => Promise<void>;
 };
@@ -57,6 +65,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signInWithEmailAndPassword(auth, email, password);
   }
 
+  async function signUpWithGoogle() {
+    // Same guest-upgrade logic as signUp above: keep the anonymous uid (and
+    // its free-generation count) by linking Google to it in place, rather
+    // than starting a fresh account.
+    if (auth.currentUser?.isAnonymous) {
+      try {
+        await linkWithPopup(auth.currentUser, googleProvider);
+        trackSignupCompleted("guest_upgrade");
+        return;
+      } catch (err) {
+        // That Google identity is already spoken for — either the same
+        // Google account is linked to a different Firebase user
+        // (credential-already-in-use), or this email already has a
+        // different-provider account, most commonly password
+        // (email-already-in-use). Either way, fall back to signing into
+        // whichever account actually owns it instead of upgrading this guest.
+        const code = (err as { code?: string })?.code;
+        if (code !== "auth/credential-already-in-use" && code !== "auth/email-already-in-use") throw err;
+      }
+    }
+    const result = await signInWithPopup(auth, googleProvider);
+    if (getAdditionalUserInfo(result)?.isNewUser) trackSignupCompleted("new_account");
+  }
+
+  // Deliberately does NOT attempt to link/upgrade an anonymous guest — unlike
+  // signUpWithGoogle, "sign in" means the visitor is asserting they already
+  // have an account, so go straight to authenticating as it instead.
+  async function signInWithGoogle() {
+    await signInWithPopup(auth, googleProvider);
+  }
+
   async function signInGuest() {
     await signInAnonymously(auth);
   }
@@ -66,7 +105,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signInGuest, signOutUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, signUp, signIn, signUpWithGoogle, signInWithGoogle, signInGuest, signOutUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

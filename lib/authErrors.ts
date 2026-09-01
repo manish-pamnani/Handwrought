@@ -2,7 +2,8 @@ export function getAuthErrorMessage(err: unknown): string {
   const code = (err as { code?: string })?.code ?? "";
   switch (code) {
     case "auth/email-already-in-use":
-      return "An account with this email already exists — try signing in instead.";
+    case "auth/account-exists-with-different-credential":
+      return "An account with this email already exists — sign in with your password instead.";
     case "auth/invalid-email":
       return "That doesn't look like a valid email address.";
     case "auth/weak-password":

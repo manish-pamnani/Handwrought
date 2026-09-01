@@ -19,7 +19,7 @@ export default function TermsPage() {
         HandWrought is a web-based writing editor with AI-assisted editing features (outline generation, tone
         changes, synonyms, rephrasing, shortening, expanding, and grammar fixes). By default, these features run
         against a shared Google Gemini API key that we provide — new accounts get a limited number of free
-        generations, and a credit tier unlocks a larger monthly credit allotment. You can also supply your own
+        generations, and a credit pack unlocks a larger, non-expiring balance of AI generations. You can also supply your own
         Google Gemini API key in Settings to run AI features against your own quota instead, which is never stored
         on our servers.
       </p>
@@ -32,9 +32,9 @@ export default function TermsPage() {
 
       <h2>Payment and access</h2>
       <p>
-        New accounts get a limited number of free AI generations, no payment required. A HandWrought credit tier
-        is a one-time purchase — not a subscription — that unlocks a monthly credit allotment for AI generations,
-        refreshing automatically for as long as you use the Service. Payments are processed by Paddle.com Market
+        New accounts get a limited number of free AI generations, no payment required. A HandWrought credit pack
+        is a one-time purchase — not a subscription — for AI generations. Credits do not expire and buying
+        another pack adds to any credits you already have. Payments are processed by Paddle.com Market
         Ltd, our payment processor and merchant of record — Paddle handles your payment details, receipts, and
         applicable tax; we never see or store your card details. See our{" "}
         <a href="/refund">Refund Policy</a> for cancellation and refund terms.

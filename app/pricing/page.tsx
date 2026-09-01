@@ -29,8 +29,8 @@ export default function PricingPage() {
         <div className="text-center">
           <h1 className="font-serif text-2xl font-semibold text-[var(--color-ink)] sm:text-3xl">Pricing</h1>
           <p className="mt-2 max-w-md font-sans text-[13.5px] leading-relaxed text-[var(--color-ink-muted)]">
-            Start free, no card required. A credit tier is a one-time payment — not a subscription — that unlocks
-            a monthly credit allotment which refreshes for as long as you use HandWrought.
+            Start free, no card required. A credit pack is a one-time payment — not a subscription — and your
+            credits never expire. Buy another pack anytime you run low.
           </p>
         </div>
 
@@ -54,7 +54,7 @@ export default function PricingPage() {
                 <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
               </p>
               <p className="mt-1 font-sans text-[13px] text-[var(--color-ink-muted)]">
-                {TIER_CREDITS[tier]} credits/month, refreshing automatically — forever
+                {TIER_CREDITS[tier]} credits — never expire, buy more anytime
               </p>
             </div>
           ))}

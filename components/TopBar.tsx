@@ -3,15 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, type RefObject } from "react";
+import type { User } from "firebase/auth";
 import { countWords } from "@/lib/wordCount";
 import { FREE_GENERATIONS_LIMIT, type Tier } from "@/lib/constants";
 import type { DocumentPanelHandle } from "./DocumentPanel";
+import UserMenu from "./UserMenu";
 
 type TopBarProps = {
   documentText: string;
   documentPanelRef: RefObject<DocumentPanelHandle | null>;
   isGuest: boolean;
-  userEmail: string | null;
+  user: User | null;
   tier: Tier | null;
   creditsRemaining: number;
   onSignOut: () => void;
@@ -27,7 +29,7 @@ export default function TopBar({
   documentText,
   documentPanelRef,
   isGuest,
-  userEmail,
+  user,
   tier,
   creditsRemaining,
   onSignOut,
@@ -121,8 +123,8 @@ export default function TopBar({
                   <>
                     <p className="mb-1 font-sans text-[12px] font-semibold text-[var(--color-ink)]">How credits work</p>
                     <p className="font-sans text-[12px] leading-relaxed text-[var(--color-ink-muted)]">
-                      You&apos;re on the ${tier} credit tier — {creditsRemaining} credits left this cycle, refreshing
-                      automatically every 30 days. Every generation is flat: 1 credit, any length.
+                      You&apos;re on the ${tier} credit pack — {creditsRemaining} credits left. They never expire and
+                      don&apos;t reset; buy more anytime you run low. Every generation is flat: 1 credit, any length.
                     </p>
                   </>
                 ) : (
@@ -145,17 +147,7 @@ export default function TopBar({
             </div>
           </div>
         ) : (
-          <span className="max-w-[160px] truncate font-mono text-xs text-[var(--color-ink-muted)]" title={userEmail ?? undefined}>
-            {userEmail}
-          </span>
-        )}
-        {!isGuest && (
-          <button
-            onClick={onSignOut}
-            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
-          >
-            Sign out
-          </button>
+          user && <UserMenu user={user} onSignOut={onSignOut} />
         )}
       </div>
     </header>

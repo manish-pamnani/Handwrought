@@ -10,6 +10,25 @@ export const GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-2.5-flash", "gemi
 
 export type GeminiModel = (typeof GEMINI_MODELS)[number];
 
+export type GeminiUsage = {
+  promptTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+};
+
+// Gemini's response carries the real, billed token counts in `usageMetadata`
+// — pulling this out (instead of discarding it with the rest of the response)
+// is what turns cost estimates into real, measured numbers. Shared by both
+// /api/chat and /api/import so their usage logs stay in the same shape.
+export function extractGeminiUsage(data: unknown): GeminiUsage {
+  const usage = (data as { usageMetadata?: Record<string, unknown> } | null | undefined)?.usageMetadata;
+  return {
+    promptTokens: typeof usage?.promptTokenCount === "number" ? usage.promptTokenCount : 0,
+    outputTokens: typeof usage?.candidatesTokenCount === "number" ? usage.candidatesTokenCount : 0,
+    totalTokens: typeof usage?.totalTokenCount === "number" ? usage.totalTokenCount : 0,
+  };
+}
+
 /**
  * Calls `call` with each model in GEMINI_MODELS in order, moving to the next
  * one only when the current model is overloaded/rate-limited (429/502/503).

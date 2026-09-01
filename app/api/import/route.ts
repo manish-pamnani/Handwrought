@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import WordExtractor from "word-extractor";
 import { getAdminAuth } from "@/lib/firebaseAdmin";
-import { getUsage, incrementUsage, consumeCredit } from "@/lib/serverCredits";
+import { getUsage, incrementUsage, consumeCredit, logUsageEvent } from "@/lib/serverCredits";
 import {
   FREE_GENERATIONS_LIMIT,
   FREE_TIER_MAX_IMPORT_BYTES,
   FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS,
   FREE_TIER_RATE_LIMIT_PER_HOUR,
 } from "@/lib/constants";
-import { callGeminiWithRotation, type GeminiModel } from "@/lib/geminiModels";
+import { callGeminiWithRotation, extractGeminiUsage, type GeminiModel, type GeminiUsage } from "@/lib/geminiModels";
 import { verifyAppCheck } from "@/lib/appCheck";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 
@@ -93,7 +93,7 @@ async function callGemini(
   systemPrompt: string,
   userPart: object,
   maxOutputTokens?: number
-): Promise<string> {
+): Promise<{ text: string; usage: GeminiUsage }> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
     {
@@ -117,7 +117,7 @@ async function callGemini(
   const data = await res.json();
   const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("") ?? "";
   if (!text) throw new Error("Gemini returned an empty response.");
-  return text;
+  return { text, usage: extractGeminiUsage(data) };
 }
 
 export async function POST(request: Request) {
@@ -202,7 +202,7 @@ export async function POST(request: Request) {
       if (usage.creditsRemaining <= 0) {
         return NextResponse.json(
           {
-            error: "You've used all your credits for this cycle. They'll refresh in your next 30-day cycle.",
+            error: "You've used all your credits — buy more anytime to keep generating.",
             code: "credits_exhausted",
             creditsRemaining: 0,
           },
@@ -256,38 +256,60 @@ export async function POST(request: Request) {
 
   const maxOutputTokens = shouldIncrementUsage ? FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS * freeTierUnits : undefined;
 
+  let usedModel: GeminiModel | null = null;
+  let geminiUsage: GeminiUsage = { promptTokens: 0, outputTokens: 0, totalTokens: 0 };
   let markdown: string;
   try {
     if (extension === "doc") {
       const extractor = new WordExtractor();
       const doc = await extractor.extract(buffer);
       const rawText = doc.getBody();
-      markdown = await callGeminiWithRotation((m) =>
-        callGemini(apiKey, m, TEXT_CLEANUP_PROMPT, { text: rawText }, maxOutputTokens)
-      );
+      const result = await callGeminiWithRotation((m) => {
+        usedModel = m;
+        return callGemini(apiKey, m, TEXT_CLEANUP_PROMPT, { text: rawText }, maxOutputTokens);
+      });
+      markdown = result.text;
+      geminiUsage = result.usage;
     } else {
       const mimeType = NATIVE_DOCUMENT_MIME[extension];
       const base64 = buffer.toString("base64");
-      markdown = await callGeminiWithRotation((m) =>
-        callGemini(
+      const result = await callGeminiWithRotation((m) => {
+        usedModel = m;
+        return callGemini(
           apiKey,
           m,
           DOCUMENT_TO_MARKDOWN_PROMPT,
           { inline_data: { mime_type: mimeType, data: base64 } },
           maxOutputTokens
-        )
-      );
+        );
+      });
+      markdown = result.text;
+      geminiUsage = result.usage;
     }
   } catch (err) {
     console.error("import: gemini error", err);
     return NextResponse.json({ error: "Couldn't read that file — try again in a moment." }, { status: 502 });
   }
 
+  console.log(
+    JSON.stringify({
+      event: "import_completion",
+      uid,
+      model: usedModel,
+      keySource: userKey ? "byok" : process.env.GEMINI_SHARED_API_KEY ? "shared" : "dev-fallback",
+      extension,
+      promptTokens: geminiUsage.promptTokens,
+      outputTokens: geminiUsage.outputTokens,
+    })
+  );
+
   if (shouldConsumeCredit) {
     creditsRemaining = await consumeCredit(uid);
+    await logUsageEvent(uid, "import", "credit", usedModel ? { model: usedModel, tokens: geminiUsage } : undefined);
   } else if (shouldIncrementUsage) {
     const newCount = await incrementUsage(uid, freeTierUnits);
     creditsRemaining = Math.max(0, FREE_GENERATIONS_LIMIT - newCount);
+    await logUsageEvent(uid, "import", "free", usedModel ? { model: usedModel, tokens: geminiUsage } : undefined);
   }
 
   if (!markdown.trim()) {

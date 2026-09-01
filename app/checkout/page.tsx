@@ -6,18 +6,13 @@ import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
 import { useAuth } from "@/lib/AuthContext";
-import { EARLY_BIRD_DISCOUNT_ID, PADDLE_CHECKOUT_ENABLED, TIER_CREDITS, TIER_PRICE_IDS, type Tier } from "@/lib/constants";
-
-const TIERS: Tier[] = ["9", "19", "29"];
+import { useAccess } from "@/lib/useAccess";
+import { CHECKOUT_READY, EARLY_BIRD_DISCOUNT_ID, TIER_CREDITS, TIER_PRICE_IDS, TIERS, type Tier } from "@/lib/constants";
+import AuthForm, { type AuthMode } from "@/components/AuthForm";
+import UserMenu from "@/components/UserMenu";
 
 const inputClasses =
   "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-2.5 py-2 font-sans text-[13px] text-[var(--color-ink)] placeholder:text-[var(--color-ink-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-tint)]";
-
-// Requires the explicit PADDLE_CHECKOUT_ENABLED go-live switch (see
-// lib/constants.ts — off until Paddle's domain verification is done), and
-// guards against shipping a broken checkout if price IDs haven't been
-// populated yet either way. Falls back to the waitlist form otherwise.
-const CHECKOUT_READY = PADDLE_CHECKOUT_ENABLED && TIERS.every((tier) => TIER_PRICE_IDS[tier]);
 
 function formatTotal(totals: CheckoutEventsData["totals"], currencyCode: string): string {
   return new Intl.NumberFormat(undefined, { style: "currency", currency: currencyCode }).format(totals.total);
@@ -149,7 +144,7 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
         <span className="font-sans text-sm font-normal text-[var(--color-ink-muted)]"> once</span>
       </p>
       <p className="mt-1 font-sans text-[13px] text-[var(--color-ink-muted)]">
-        {TIER_CREDITS[tier]} credits/month, refreshing automatically — forever
+        {TIER_CREDITS[tier]} credits — never expire, buy more anytime
       </p>
       <button
         type="button"
@@ -163,12 +158,37 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
   );
 }
 
+function CurrentPlanCard() {
+  const access = useAccess();
+  if (access.state !== "ready") return null;
+
+  return (
+    <div className="flex w-full max-w-3xl items-center justify-between rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3">
+      <div>
+        <p className="font-sans text-sm font-medium text-[var(--color-ink)]">
+          {access.tier ? `$${access.tier} credit pack` : "No credits purchased yet"}
+        </p>
+        <p className="mt-0.5 font-sans text-xs text-[var(--color-ink-muted)]">
+          {access.tier
+            ? "Buying another pack below adds to what you have left — it stacks, nothing is lost."
+            : "Pick a pack below to get started."}
+        </p>
+      </div>
+      <p className="font-serif text-2xl font-semibold text-[var(--color-ink)]">
+        {access.creditsRemaining}
+        <span className="ml-1 font-sans text-xs font-normal text-[var(--color-ink-muted)]">left</span>
+      </p>
+    </div>
+  );
+}
+
 function PaddleCheckout() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [paddle, setPaddle] = useState<Paddle | null>(null);
   const [checkoutData, setCheckoutData] = useState<CheckoutEventsData | null>(null);
   const [complete, setComplete] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [authMode, setAuthMode] = useState<AuthMode>("signup");
   // Events keep firing after checkout.completed (e.g. checkout.closed), some with
   // stale/zeroed totals — freeze on the first completed event and ignore the rest.
   const completedRef = useRef(false);
@@ -225,13 +245,37 @@ function PaddleCheckout() {
     );
   }
 
+  // Credits are granted to a Firebase uid (see lib/paddleWebhookHandlers.ts).
+  // An anonymous guest already has one, but it only lives in this browser's
+  // storage — losing it after paying means losing the credits with no way to
+  // recover them. Require a real account before Paddle checkout can open.
+  if (loading) return null;
+  if (!user || user.isAnonymous) {
+    return (
+      <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-5 py-16">
+        <div className="text-center">
+          <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">
+            {authMode === "signin" ? "Welcome back" : "Create an account"}
+          </h1>
+          <p className="mt-1.5 font-sans text-[13.5px] text-[var(--color-ink-muted)]">
+            Credits are tied to your account, not just this browser — sign in or create one so you never lose
+            access to what you paid for.
+          </p>
+        </div>
+        <div className="mt-6">
+          <AuthForm onSuccess={() => {}} onModeChange={setAuthMode} />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-6 px-5 py-10 sm:py-16">
       <div className="text-center">
         <h1 className="font-serif text-xl font-semibold text-[var(--color-ink)]">Credits</h1>
         <p className="mt-1.5 font-sans text-[13.5px] text-[var(--color-ink-muted)]">
-          One-time payment, not a subscription — pick a credit tier once and it refreshes every month, for as long as
-          you use HandWrought.
+          A one-time payment, not a subscription — buy a credit pack and use it whenever you like. Credits never
+          expire; buy another pack anytime you run low.
         </p>
       </div>
 
@@ -253,6 +297,8 @@ function PaddleCheckout() {
         </p>
       )}
 
+      <CurrentPlanCard />
+
       <div className="flex w-full max-w-3xl flex-col gap-4 sm:flex-row">
         {TIERS.map((tier) => (
           <TierCard key={tier} tier={tier} paddle={paddle} userEmail={user?.email} userUid={user?.uid} />
@@ -272,6 +318,8 @@ function CheckoutContents() {
 }
 
 export default function CheckoutPage() {
+  const { user, signOutUser } = useAuth();
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-paper-inset)]">
       <header className="flex items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-4">
@@ -281,6 +329,7 @@ export default function CheckoutPage() {
             HandWrought
           </span>
         </Link>
+        {user && !user.isAnonymous && <UserMenu user={user} onSignOut={signOutUser} />}
       </header>
       <Suspense fallback={null}>
         <CheckoutContents />
