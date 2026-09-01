@@ -11,9 +11,11 @@ import { grantTier, revokeTier } from "@/lib/serverCredits";
 
 /**
  * Paddle delivers at-least-once and retries the same event.eventId until we
- * return 2xx, so every handler here must be idempotent. grantTier/revokeTier's
- * Firestore `set(..., { merge: true })` with the same values is naturally
- * idempotent — no ledger needed for these single writes.
+ * return 2xx, so every handler here must be idempotent. revokeTier's flat
+ * `set(..., { merge: true })` is naturally idempotent (same end value no
+ * matter how many times it fires). grantTier is NOT — it increments credits
+ * — so it takes the transaction id and guards its own idempotency against a
+ * replayed event internally (see lib/serverCredits.ts).
  */
 export async function processEvent(event: EventEntity): Promise<void> {
   switch (event.eventType) {
@@ -53,7 +55,7 @@ async function handleTransactionCompleted(event: TransactionCompletedEvent): Pro
     return;
   }
 
-  await grantTier(firebaseUid, purchasedTier);
+  await grantTier(firebaseUid, purchasedTier, data.id);
 }
 
 // A refund or chargeback revokes the tier back to null, matching the 14-day

@@ -36,6 +36,9 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // Bumped after linkWithCredential/linkWithPopup — see refreshUser below.
+  // Its value is never read; it exists purely to force a re-render.
+  const [, forceRerender] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -44,6 +47,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return unsubscribe;
   }, []);
+
+  // linkWithCredential/linkWithPopup upgrade the CURRENT user object in
+  // place — same uid, no sign-out/sign-in transition — so Firebase doesn't
+  // reliably re-fire onAuthStateChanged the way it does for a real sign-in.
+  // Without this, anything gated on `!user.isAnonymous` (the checkout auth
+  // gate, /plans-and-credits) never notices the upgrade and stays stuck,
+  // even though the link itself succeeded. Firebase already mutates
+  // auth.currentUser's fields in place, so re-`setUser`-ing the same
+  // reference wouldn't reliably trigger React (Object.is bails out) — just
+  // force a render instead; the context value object below is rebuilt fresh
+  // every render, so consumers re-read user.isAnonymous off the
+  // already-updated object and see the correct, current value.
+  function refreshUser() {
+    forceRerender((n) => n + 1);
+  }
 
   async function signUp(email: string, password: string) {
     // If the visitor is already an anonymous guest (the common case now that
@@ -54,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (auth.currentUser?.isAnonymous) {
       const credential = EmailAuthProvider.credential(email, password);
       await linkWithCredential(auth.currentUser, credential);
+      refreshUser();
       trackSignupCompleted("guest_upgrade");
       return;
     }
@@ -72,6 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (auth.currentUser?.isAnonymous) {
       try {
         await linkWithPopup(auth.currentUser, googleProvider);
+        refreshUser();
         trackSignupCompleted("guest_upgrade");
         return;
       } catch (err) {

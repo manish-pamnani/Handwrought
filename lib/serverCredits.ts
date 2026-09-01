@@ -95,9 +95,23 @@ export async function incrementUsage(uid: string, units = 1): Promise<number> {
 // wiping out an unused balance. `tier` is updated to the most recently
 // purchased pack, which is display-only now (e.g. which pack badge to show)
 // — it doesn't gate anything; only creditsRemaining does.
-export async function grantTier(uid: string, tier: Tier): Promise<void> {
-  const ref = getAdminDb().collection("users").doc(uid);
-  await ref.set({ tier, creditsRemaining: FieldValue.increment(TIER_CREDITS[tier]) }, { merge: true });
+//
+// Paddle delivers webhooks at-least-once and retries the same transaction
+// until it gets a 2xx (see lib/paddleWebhookHandlers.ts) — with a flat `set`
+// that retry was harmless (same end value either way), but FieldValue.increment
+// is NOT naturally idempotent: an unguarded retry would grant credits twice
+// for one payment. `transactionId` (Paddle's transaction.completed data.id)
+// guards against that — the increment and the "already processed" marker
+// are written atomically, so a replayed event is a no-op the second time.
+export async function grantTier(uid: string, tier: Tier, transactionId: string): Promise<void> {
+  const userRef = getAdminDb().collection("users").doc(uid);
+  const processedRef = getAdminDb().collection("paddleProcessedTransactions").doc(transactionId);
+  await getAdminDb().runTransaction(async (tx) => {
+    const processedSnap = await tx.get(processedRef);
+    if (processedSnap.exists) return; // already granted for this transaction — Paddle retry, no-op
+    tx.set(userRef, { tier, creditsRemaining: FieldValue.increment(TIER_CREDITS[tier]) }, { merge: true });
+    tx.set(processedRef, { uid, tier, grantedAt: FieldValue.serverTimestamp() });
+  });
 }
 
 // Called by the Paddle webhook on an approved refund or chargeback — matches

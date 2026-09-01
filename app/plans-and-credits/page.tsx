@@ -9,6 +9,7 @@ import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import UserMenu from "@/components/UserMenu";
 import PlansModal from "@/components/PlansModal";
 import PlansPanel from "@/components/PlansPanel";
+import RefreshLoader from "@/components/RefreshLoader";
 import { TIER_CREDITS, TIER_NAMES } from "@/lib/constants";
 
 function CreditsIcon() {
@@ -30,10 +31,15 @@ function ArrowIcon() {
 }
 
 function PlansAndCreditsContent() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const access = useAccess();
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [plansModalOpen, setPlansModalOpen] = useState(false);
+
+  // Same reasoning as /checkout: never flash the sign-in form for someone
+  // who's actually already signed in, and never show "—"/stale numbers
+  // before the real credits balance has loaded.
+  if (loading) return <RefreshLoader />;
 
   if (!user || user.isAnonymous) {
     return (
@@ -52,6 +58,8 @@ function PlansAndCreditsContent() {
       </main>
     );
   }
+
+  if (access.state === "loading") return <RefreshLoader />;
 
   const tier = access.tier;
   const creditsRemaining = access.creditsRemaining;

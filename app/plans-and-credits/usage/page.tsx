@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useAuth } from "@/lib/AuthContext";
 import AuthForm, { type AuthMode } from "@/components/AuthForm";
 import UserMenu from "@/components/UserMenu";
+import RefreshLoader from "@/components/RefreshLoader";
 import { TIER_NAMES, type Tier } from "@/lib/constants";
 
 type UsageEvent = {
@@ -42,7 +43,7 @@ function formatDate(iso: string | null): string {
 }
 
 function UsageContent() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [authMode, setAuthMode] = useState<AuthMode>("signin");
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [data, setData] = useState<UsageData | null>(null);
@@ -69,6 +70,10 @@ function UsageContent() {
     load();
   }, [load]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Same reasoning as /checkout: never flash the sign-in form for someone
+  // who's actually already signed in.
+  if (loading) return <RefreshLoader />;
 
   if (!user || user.isAnonymous) {
     return (

@@ -6,7 +6,8 @@ import { Suspense, useEffect, useRef, useState, type FormEvent } from "react";
 import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import type { CheckoutEventsData } from "@paddle/paddle-js/types/checkout/events";
 import { useAuth } from "@/lib/AuthContext";
-import { useAccess } from "@/lib/useAccess";
+import { useAccess, type UseAccessResult } from "@/lib/useAccess";
+import RefreshLoader from "@/components/RefreshLoader";
 import {
   CHECKOUT_READY,
   EARLY_BIRD_DISCOUNT_ID,
@@ -166,8 +167,11 @@ function TierCard({ tier, paddle, userEmail, userUid }: { tier: Tier; paddle: Pa
   );
 }
 
-function CurrentPlanCard() {
-  const access = useAccess();
+function CurrentPlanCard({ access }: { access: UseAccessResult }) {
+  // PaddleCheckout already blocks on access.state === "loading" before this
+  // ever renders — this only guards the "error" case (fetch failed), where
+  // showing useAccess's zeroed-out defaults would misrepresent a real
+  // customer's balance. Hide rather than show a wrong number.
   if (access.state !== "ready") return null;
 
   return (
@@ -192,6 +196,7 @@ function CurrentPlanCard() {
 
 function PaddleCheckout() {
   const { user, loading } = useAuth();
+  const access = useAccess();
   const [paddle, setPaddle] = useState<Paddle | null>(null);
   const [checkoutData, setCheckoutData] = useState<CheckoutEventsData | null>(null);
   const [complete, setComplete] = useState(false);
@@ -257,7 +262,12 @@ function PaddleCheckout() {
   // An anonymous guest already has one, but it only lives in this browser's
   // storage — losing it after paying means losing the credits with no way to
   // recover them. Require a real account before Paddle checkout can open.
-  if (loading) return null;
+  //
+  // Never render a half-loaded state (blank page, or the sign-up form
+  // flashing before a real, already-signed-in session is confirmed, or
+  // "$0 left" before the real balance loads) — show the same loader used
+  // elsewhere until both auth and the credits fetch have actually settled.
+  if (loading) return <RefreshLoader />;
   if (!user || user.isAnonymous) {
     return (
       <main className="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center px-5 py-16">
@@ -276,6 +286,12 @@ function PaddleCheckout() {
       </main>
     );
   }
+
+  // A confirmed, non-anonymous user — but their credits balance is still in
+  // flight (common right after a refresh, e.g. right after completing a
+  // purchase). Wait for the real number rather than letting CurrentPlanCard
+  // show nothing while everything around it has already rendered.
+  if (access.state === "loading") return <RefreshLoader />;
 
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-6 px-5 py-10 sm:py-16">
@@ -305,7 +321,7 @@ function PaddleCheckout() {
         </p>
       )}
 
-      <CurrentPlanCard />
+      <CurrentPlanCard access={access} />
 
       <div className="flex w-full max-w-3xl flex-col gap-4 sm:flex-row">
         {TIERS.map((tier) => (

@@ -76,7 +76,7 @@ export const TIER_PRICE_IDS: Record<Tier, string> =
 // app-side tracking needed. Live ID still empty — create it against the live
 // catalog the same way before going live, same pattern as TIER_PRICE_IDS.
 const SANDBOX_EARLY_BIRD_DISCOUNT_ID = "dsc_01m1b66xvvykwervayxbjztfx2";
-const LIVE_EARLY_BIRD_DISCOUNT_ID = "";
+const LIVE_EARLY_BIRD_DISCOUNT_ID = "dsc_01m1drh82ff6y0gh0psvzs2219";
 export const EARLY_BIRD_DISCOUNT_ID =
   process.env.NEXT_PUBLIC_PADDLE_ENV === "production" ? LIVE_EARLY_BIRD_DISCOUNT_ID : SANDBOX_EARLY_BIRD_DISCOUNT_ID;
 
