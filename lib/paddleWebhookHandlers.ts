@@ -11,11 +11,10 @@ import { grantTier, revokeTier } from "@/lib/serverCredits";
 
 /**
  * Paddle delivers at-least-once and retries the same event.eventId until we
- * return 2xx, so every handler here must be idempotent. revokeTier's flat
- * `set(..., { merge: true })` is naturally idempotent (same end value no
- * matter how many times it fires). grantTier is NOT — it increments credits
- * — so it takes the transaction id and guards its own idempotency against a
- * replayed event internally (see lib/serverCredits.ts).
+ * return 2xx, so every handler here must be idempotent. Both grantTier and
+ * revokeTier increment/decrement credits rather than doing a flat set — so
+ * both take an id (transaction id, adjustment id) and guard their own
+ * idempotency against a replayed event internally (see lib/serverCredits.ts).
  */
 export async function processEvent(event: EventEntity): Promise<void> {
   switch (event.eventType) {
@@ -58,12 +57,14 @@ async function handleTransactionCompleted(event: TransactionCompletedEvent): Pro
   await grantTier(firebaseUid, purchasedTier, data.id);
 }
 
-// A refund or chargeback revokes the tier back to null, matching the 14-day
-// no-questions-asked promise in the Refund Policy. `status` moves through
-// pending_approval -> approved (or rejected) — only act once approved, since
-// AdjustmentCreated can fire before that's decided and AdjustmentUpdated
-// fires again when it is. `action` also covers chargeback_reverse etc.; only
-// 'refund' and 'chargeback' should ever revoke access.
+// A refund or chargeback deducts that specific purchase's credits, matching
+// the 14-day no-questions-asked promise in the Refund Policy — not a wipe
+// of the whole account, since credits stack across multiple purchases.
+// `status` moves through pending_approval -> approved (or rejected) — only
+// act once approved, since AdjustmentCreated can fire before that's decided
+// and AdjustmentUpdated fires again when it is. `action` also covers
+// chargeback_reverse etc.; only 'refund' and 'chargeback' should ever revoke
+// access.
 async function handleAdjustment(event: AdjustmentCreatedEvent | AdjustmentUpdatedEvent): Promise<void> {
   const { data } = event;
   if (data.status !== "approved") return;
@@ -82,5 +83,5 @@ async function handleAdjustment(event: AdjustmentCreatedEvent | AdjustmentUpdate
     return;
   }
 
-  await revokeTier(firebaseUid);
+  await revokeTier(firebaseUid, refundedTier, data.id);
 }

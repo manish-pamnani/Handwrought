@@ -52,14 +52,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // place — same uid, no sign-out/sign-in transition — so Firebase doesn't
   // reliably re-fire onAuthStateChanged the way it does for a real sign-in.
   // Without this, anything gated on `!user.isAnonymous` (the checkout auth
-  // gate, /plans-and-credits) never notices the upgrade and stays stuck,
-  // even though the link itself succeeded. Firebase already mutates
-  // auth.currentUser's fields in place, so re-`setUser`-ing the same
-  // reference wouldn't reliably trigger React (Object.is bails out) — just
-  // force a render instead; the context value object below is rebuilt fresh
-  // every render, so consumers re-read user.isAnonymous off the
-  // already-updated object and see the correct, current value.
+  // gate, /plans-and-credits, TopBar's guest label) never notices the
+  // upgrade and stays stuck showing the pre-link state, even though the
+  // link itself succeeded server-side.
+  //
+  // Explicitly re-reading auth.currentUser and pushing it into state (not
+  // just forcing a re-render) matters: whether Firebase mutates the existing
+  // User object in place or hands back a distinct one on the next read isn't
+  // something to rely on either way — setUser(auth.currentUser) is correct
+  // under both, while a bare re-render is only correct if the former holds.
+  // Confirmed via a real repro that assuming in-place mutation alone isn't
+  // reliable — the guest label stayed stuck even after linking succeeded.
+  // The forceRerender bump stays too, as a backstop in case
+  // auth.currentUser ever returns a reference setUser bails out on
+  // (Object.is same-reference) despite fields having changed underneath it.
   function refreshUser() {
+    setUser(auth.currentUser);
     forceRerender((n) => n + 1);
   }
 

@@ -116,9 +116,30 @@ export async function grantTier(uid: string, tier: Tier, transactionId: string):
 
 // Called by the Paddle webhook on an approved refund or chargeback — matches
 // the 14-day no-questions-asked refund promised in the Refund Policy.
-export async function revokeTier(uid: string): Promise<void> {
-  const ref = getAdminDb().collection("users").doc(uid);
-  await ref.set({ tier: null, creditsRemaining: 0 }, { merge: true });
+//
+// Credits stack across purchases now (see grantTier above) — refunding one
+// $6.75/100-credit purchase must only deduct those 100 credits, not wipe the
+// account's whole accumulated balance the way a flat `set` to 0 used to.
+// `tier` (display-only, doesn't gate anything) is left alone unless the
+// deduction brings the balance to 0, in which case there's nothing left to
+// badge as a pack — falls back to showing "Free".
+//
+// Same idempotency shape as grantTier: Paddle retries adjustment webhooks
+// at-least-once, and FieldValue.increment(-...) is not naturally idempotent
+// — `adjustmentId` guards a replay from deducting twice for one refund.
+export async function revokeTier(uid: string, tier: Tier, adjustmentId: string): Promise<void> {
+  const userRef = getAdminDb().collection("users").doc(uid);
+  const processedRef = getAdminDb().collection("paddleProcessedAdjustments").doc(adjustmentId);
+  await getAdminDb().runTransaction(async (tx) => {
+    const processedSnap = await tx.get(processedRef);
+    if (processedSnap.exists) return; // already revoked for this adjustment — Paddle retry, no-op
+
+    const userSnap = await tx.get(userRef);
+    const current = typeof userSnap.data()?.creditsRemaining === "number" ? userSnap.data()!.creditsRemaining : 0;
+    const next = Math.max(0, current - TIER_CREDITS[tier]);
+    tx.set(userRef, { creditsRemaining: next, ...(next === 0 && { tier: null }) }, { merge: true });
+    tx.set(processedRef, { uid, tier, revokedAt: FieldValue.serverTimestamp() });
+  });
 }
 
 // Per-generation history backing the /plans-and-credits/usage page — and,

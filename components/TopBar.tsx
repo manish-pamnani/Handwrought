@@ -127,6 +127,19 @@ export default function TopBar({
                       expire and don&apos;t reset; buy more anytime you run low. Every generation is flat: 1 credit, any
                       length.
                     </p>
+                    {/* Credits granted while still a guest only live in this
+                        browser's storage — clearing site data or switching
+                        devices loses them for good, with no way back in
+                        (there's no email/password tied to an anonymous
+                        session). This is the only guest-visible path to fix
+                        that after the fact; going forward the checkout auth
+                        gate stops a purchase from ever landing in this state. */}
+                    <Link
+                      href="/checkout"
+                      className="mt-2.5 block w-full rounded-full bg-[var(--color-accent)] px-3 py-1.5 text-center font-sans text-[12px] font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)]"
+                    >
+                      Sign in to save these credits
+                    </Link>
                   </>
                 ) : (
                   <>
