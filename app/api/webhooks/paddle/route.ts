@@ -7,7 +7,16 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const signature = request.headers.get("paddle-signature") ?? "";
   const rawBody = await request.text();
-  const secret = process.env.PADDLE_NOTIFICATION_WEBHOOK_SECRET ?? "";
+  // Sandbox and live are separate Paddle accounts with separate webhook
+  // destinations, each signing with its own secret — using the wrong one
+  // means every real event fails signature verification here, silently:
+  // Paddle gets a non-2xx, retries a few times, then gives up. A customer
+  // pays, the transaction.completed event never verifies, grantTier never
+  // runs — paid and got nothing, with no visible error anywhere.
+  const secret =
+    (process.env.NEXT_PUBLIC_PADDLE_ENV === "production"
+      ? process.env.PADDLE_NOTIFICATION_WEBHOOK_SECRET_LIVE
+      : process.env.PADDLE_NOTIFICATION_WEBHOOK_SECRET) ?? "";
 
   if (!signature || !rawBody) {
     return NextResponse.json({ error: "Missing signature or body" }, { status: 400 });
