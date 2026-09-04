@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import LegalPage from "@/components/LegalPage";
 
-export const metadata: Metadata = { title: "Refund Policy — HandWrought" };
+export const metadata: Metadata = {
+  title: "Refund Policy — HandWrought",
+  description: "HandWrought's refund policy for credit pack purchases.",
+};
 
 export default function RefundPage() {
   return (

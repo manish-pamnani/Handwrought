@@ -4,7 +4,11 @@ import Link from "next/link";
 import { FREE_GENERATIONS_LIMIT, TIER_NAMES, TIER_TAGLINES, TIERS } from "@/lib/constants";
 import TierFeatureList from "@/components/TierFeatureList";
 
-export const metadata: Metadata = { title: "Pricing — HandWrought" };
+export const metadata: Metadata = {
+  title: "Pricing — HandWrought",
+  description:
+    "Start free with 5 generations, no signup. Credit packs are one-time purchases, not subscriptions — $9 for 100 credits, $19 for 200, $29 for 400 — and never expire.",
+};
 
 export default function PricingPage() {
   return (

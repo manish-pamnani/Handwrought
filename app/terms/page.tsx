@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import LegalPage from "@/components/LegalPage";
 
-export const metadata: Metadata = { title: "Terms & Conditions — HandWrought" };
+export const metadata: Metadata = {
+  title: "Terms & Conditions — HandWrought",
+  description: "The terms governing your use of HandWrought.",
+};
 
 export default function TermsPage() {
   return (

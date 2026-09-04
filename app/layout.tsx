@@ -20,10 +20,28 @@ const mono = IBM_Plex_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = "https://handwrought.online";
+const SITE_TITLE = "HandWrought — AI writing editor, in your document";
+const SITE_DESCRIPTION =
+  "An AI writing companion — written by hand, shaped by AI. Ask for a change, review it in place, accept or reject it. No copy-pasting into a separate chat tab.";
+
 export const metadata: Metadata = {
-  title: "HandWrought",
-  description: "An AI writing companion — written by hand, shaped by AI.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   icons: { icon: "/handwrought-icon.svg" },
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: "HandWrought",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({

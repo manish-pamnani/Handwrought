@@ -13,6 +13,7 @@ import PaywallModal from "@/components/PaywallModal";
 import ImportModal from "@/components/ImportModal";
 import AuthForm from "@/components/AuthForm";
 import Modal from "@/components/Modal";
+import HelpModal from "@/components/HelpModal";
 import { useAuth } from "@/lib/AuthContext";
 import { getAppCheckHeader } from "@/lib/firebase";
 import { useAccess } from "@/lib/useAccess";
@@ -69,12 +70,14 @@ function Home() {
   const [showPolishUpsell, setShowPolishUpsell] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [welcomeTopic, setWelcomeTopic] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
   const documentPanelRef = useRef<DocumentPanelHandle>(null);
   const toolbarRowRef = useRef<HTMLDivElement>(null);
   const creditsRef = useRef<HTMLSpanElement>(null);
+  const helpButtonRef = useRef<HTMLButtonElement>(null);
   const centerSlotRef = useRef<HTMLDivElement>(null);
   const headerSlotRef = useRef<HTMLDivElement>(null);
   // Shared with DocumentPanel's own Enter-in-editor handler so the one-time
@@ -467,7 +470,26 @@ function Home() {
         error={composerError}
       />
 
-      <GuidedAnnotations active={!hasStartedWriting} toolbarRef={toolbarRowRef} creditsRef={creditsRef} />
+      <GuidedAnnotations
+        active={!hasStartedWriting}
+        toolbarRef={toolbarRowRef}
+        creditsRef={creditsRef}
+        helpRef={helpButtonRef}
+      />
+
+      {/* Fixed to the viewport corner, same reasoning as the terms/privacy
+          nav below — a persistent affordance, not part of the document's
+          own layout. Mirrors Excalidraw's "Shortcuts & help" placement. */}
+      <button
+        ref={helpButtonRef}
+        onClick={() => setHelpOpen(true)}
+        aria-label="Shortcuts & help"
+        className="fixed right-5 bottom-5 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper)] font-sans text-sm font-semibold text-[var(--color-ink-muted)] shadow-sm transition-colors hover:bg-[var(--color-paper-inset)] hover:text-[var(--color-ink)]"
+      >
+        ?
+      </button>
+
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Fixed and out of the editor's own document flow on purpose — this
           must never be able to affect the editor's size, no matter what

@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import LegalPage from "@/components/LegalPage";
 
-export const metadata: Metadata = { title: "Privacy Policy — HandWrought" };
+export const metadata: Metadata = {
+  title: "Privacy Policy — HandWrought",
+  description: "What HandWrought collects, why, and who else sees it — account data, documents, AI requests, and payments.",
+};
 
 export default function PrivacyPage() {
   return (

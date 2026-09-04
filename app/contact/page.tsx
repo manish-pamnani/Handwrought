@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import LegalPage from "@/components/LegalPage";
 
-export const metadata: Metadata = { title: "Contact — HandWrought" };
+export const metadata: Metadata = {
+  title: "Contact — HandWrought",
+  description: "Get in touch with HandWrought for support, billing questions, or anything else.",
+};
 
 export default function ContactPage() {
   return (
