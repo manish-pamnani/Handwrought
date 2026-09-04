@@ -71,7 +71,7 @@ export default function TermsPage() {
 
       <h2>Contact</h2>
       <p>
-        Questions about these terms? Reach us at <a href="mailto:manishpamnani169@gmail.com">manishpamnani169@gmail.com</a>{" "}
+        Questions about these terms? Reach us at <a href="mailto:handwrought.support@gmail.com">handwrought.support@gmail.com</a>{" "}
         or visit our <a href="/contact">Contact page</a>.
       </p>
     </LegalPage>

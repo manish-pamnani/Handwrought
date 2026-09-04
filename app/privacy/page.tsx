@@ -80,7 +80,7 @@ export default function PrivacyPage() {
       <h2>Your rights</h2>
       <p>
         You can request a copy of your account data or ask us to delete your account and associated data at any
-        time by emailing <a href="mailto:manishpamnani169@gmail.com">manishpamnani169@gmail.com</a>. Deleting your
+        time by emailing <a href="mailto:handwrought.support@gmail.com">handwrought.support@gmail.com</a>. Deleting your
         account does not affect billing records Paddle is required to retain for tax/legal purposes.
       </p>
 
@@ -96,7 +96,7 @@ export default function PrivacyPage() {
       <h2>Contact</h2>
       <p>
         Questions about this policy? Email{" "}
-        <a href="mailto:manishpamnani169@gmail.com">manishpamnani169@gmail.com</a> or visit our{" "}
+        <a href="mailto:handwrought.support@gmail.com">handwrought.support@gmail.com</a> or visit our{" "}
         <a href="/contact">Contact page</a>.
       </p>
     </LegalPage>
