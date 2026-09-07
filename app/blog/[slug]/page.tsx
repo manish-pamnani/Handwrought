@@ -33,9 +33,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       <p className="text-xs text-[var(--color-ink-muted)]">
         {new Date(post.date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
       </p>
-      {post.content.map((paragraph, i) => (
-        <p key={i}>{paragraph}</p>
-      ))}
+      {post.content}
     </LegalPage>
   );
 }

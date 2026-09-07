@@ -125,7 +125,7 @@ export default function GuidedAnnotations({ active, toolbarRef, creditsRef, help
 
   return (
     <>
-      {toolbarPos && (
+      {/* {toolbarPos && (
         <div
           className={`fixed z-30 hidden text-right font-sans text-[13px] leading-snug text-[var(--color-ink-muted)] transition-opacity duration-500 min-[760px]:block ${
             active ? "opacity-100" : "pointer-events-none opacity-0"
@@ -136,7 +136,7 @@ export default function GuidedAnnotations({ active, toolbarRef, creditsRef, help
           Format as you write —<br />
           it&apos;s the real toolbar
         </div>
-      )}
+      )} */}
 
       {creditsPos && (
         <div
@@ -160,7 +160,7 @@ export default function GuidedAnnotations({ active, toolbarRef, creditsRef, help
           style={{ top: pastePos.top, left: pastePos.left, width: PASTE_ANNOT_WIDTH }}
         >
           <PasteArrow />
-          Or paste a draft
+          Paste a draft
           <br />
           you already have
         </div>

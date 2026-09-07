@@ -22,7 +22,7 @@ export default function LegalPage({ title, children }: { title: string; children
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-12 sm:py-16">
         <h1 className="font-serif text-3xl font-semibold text-[var(--color-ink)]">{title}</h1>
-        <div className="mt-8 flex flex-col gap-6 font-sans text-sm leading-relaxed text-[var(--color-ink)] [&_h2]:mt-4 [&_h2]:font-serif [&_h2]:text-lg [&_h2]:font-semibold [&_p]:text-[var(--color-ink-muted)] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-[var(--color-ink-muted)] [&_li]:mt-1 [&_a]:text-[var(--color-accent)] [&_a]:underline">
+        <div className="mt-8 flex flex-col gap-6 font-sans text-sm leading-relaxed text-[var(--color-ink)] [&_h2]:mt-4 [&_h2]:font-serif [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:mt-2 [&_h3]:font-serif [&_h3]:text-base [&_h3]:font-semibold [&_p]:text-[var(--color-ink-muted)] [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-[var(--color-ink-muted)] [&_li]:mt-1 [&_a]:text-[var(--color-accent)] [&_a]:underline">
           {children}
         </div>
       </main>
