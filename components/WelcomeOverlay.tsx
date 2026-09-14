@@ -48,7 +48,7 @@ export default function WelcomeOverlay({
 }: WelcomeOverlayProps) {
   return (
     <div
-      className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center transition-opacity duration-500 ${
+      className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-start px-6 pt-16 text-center transition-opacity duration-500 sm:justify-center sm:pt-0 ${
         active ? "opacity-100" : "opacity-0"
       }`}
     >

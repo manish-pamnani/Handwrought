@@ -10,7 +10,7 @@ type FormattingToolbarProps = {
 type Align = "left" | "center" | "right";
 
 function Divider() {
-  return <span className="mx-1 h-5 w-px shrink-0 bg-[var(--color-border)]" />;
+  return <span className="mx-1 h-6 w-px shrink-0 bg-[var(--color-border)] sm:h-5" />;
 }
 
 type ButtonProps = {
@@ -30,7 +30,7 @@ function ToolbarButton({ title, onClick, active = false, className = "", childre
       aria-pressed={active}
       onMouseDown={(e) => e.preventDefault()}
       onClick={onClick}
-      className={`flex h-7 min-w-7 shrink-0 items-center justify-center rounded-md px-1.5 text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)] active:scale-95 ${
+      className={`flex h-9 min-w-9 shrink-0 items-center justify-center rounded-md px-1.5 text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)] active:scale-95 sm:h-7 sm:min-w-7 ${
         active ? "bg-[var(--color-accent-tint)] text-[var(--color-accent)]" : ""
       } ${className}`}
     >
@@ -116,7 +116,7 @@ export default function FormattingToolbar({ editor }: FormattingToolbarProps) {
   }
 
   return (
-    <div className="flex items-center gap-0.5 overflow-x-auto py-1">
+    <div className="flex items-center gap-1 overflow-x-auto py-1 sm:gap-0.5">
       <ToolbarButton
         title="Bold"
         active={state.bold}

@@ -8,6 +8,7 @@ import { countWords } from "@/lib/wordCount";
 import { FREE_GENERATIONS_LIMIT, TIER_NAMES, type Tier } from "@/lib/constants";
 import type { DocumentPanelHandle } from "./DocumentPanel";
 import UserMenu from "./UserMenu";
+import MobileActionsMenu from "./MobileActionsMenu";
 
 type TopBarProps = {
   documentText: string;
@@ -23,6 +24,10 @@ type TopBarProps = {
   creditsRef?: RefObject<HTMLSpanElement | null>;
   /** docking target the whole-document composer pill animates into once onboarding latches */
   headerSlotRef?: RefObject<HTMLDivElement | null>;
+  /** true once the composer has actually docked here — before that, this slot is empty
+   *  (the pill is still centered in WelcomeOverlay), so on mobile it shouldn't reserve
+   *  a whole extra row for nothing. */
+  composerDocked?: boolean;
 };
 
 export default function TopBar({
@@ -36,6 +41,7 @@ export default function TopBar({
   onOpenSettings,
   onOpenSignUp,
   creditsRef,
+  composerDocked = false,
   headerSlotRef,
 }: TopBarProps) {
   const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
@@ -73,37 +79,61 @@ export default function TopBar({
   }
 
   return (
-    <header className="flex justify-between items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-3">
-      <Link href="/" className="flex shrink-0 items-center gap-2.5">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-3 sm:flex-nowrap">
+      <Link href="/" className="order-1 flex shrink-0 items-center gap-2.5">
         <Image src="/handwrought-icon.svg" alt="" width={26} height={26} priority />
-        <span className="font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)]">
+        {/* Wordmark text is brand presence, not function — dropped below sm
+            so the icon alone (still a real home link) doesn't compete with
+            the composer for width on a narrow header. */}
+        <span className="hidden font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)] sm:inline">
           HandWrought
         </span>
       </Link>
 
       {/* Empty on purpose — DocumentComposer docks its pill here (via
-          fixed-position + measured-rect animation) once onboarding latches. */}
-      <div ref={headerSlotRef} className="h-9 max-w-sm min-w-0 flex-1" />
+          fixed-position + measured-rect animation) once onboarding latches.
+          w-full below sm forces it onto its own wrapped row (order-3) since
+          it's the one element that must never lose the space fight with the
+          shrink-0 items around it; back to inline flex-1 at sm and up,
+          matching the original single-row layout exactly. Only reserves
+          that row once something's actually docked here — before that the
+          pill is still centered in WelcomeOverlay, so an empty full-width
+          row would just be dead space (the bug the composerDocked check
+          fixes: a header that looked oddly tall with nothing in it).
+          `hidden` rather than a zero size below sm when undocked — a
+          zero-width flex item still counts toward justify-between's space
+          distribution, which was pulling the mobile cluster toward the
+          center instead of the right edge; fully removing it from layout
+          fixes that. sm:block restores it unconditionally at sm and up,
+          matching the original single-row desktop behavior. */}
+      <div
+        ref={headerSlotRef}
+        className={`${composerDocked ? "block h-9 w-full" : "hidden"} order-3 min-w-0 sm:order-2 sm:block sm:h-9 sm:w-auto sm:max-w-sm sm:flex-1`}
+      />
 
-      <div className="flex shrink-0 items-center gap-4">
-        <span className="font-mono text-xs tracking-wide text-[var(--color-ink-muted)]">
-          {wordCount} {wordCount === 1 ? "word" : "words"} · {documentText.length} {documentText.length === 1 ? "character" : "characters"}
-        </span>
-        <button
-          onClick={handleCopy}
-          className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
-        >
-          {copyState === "copied" ? "Copied" : "Copy"}
-        </button>
-        <button
-          onClick={handleExport}
-          disabled={!documentText.trim()}
-          className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-accent)]"
-        >
-          Export
-        </button>
-        <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
-        {isGuest ? (
+      <div className="order-2 flex shrink-0 items-center gap-2 sm:order-3 sm:gap-4">
+        {/* Desktop cluster — unchanged from before, just hidden below sm
+            where MobileActionsMenu takes over instead. */}
+        <div className="hidden shrink-0 items-center gap-4 sm:flex">
+          <span className="font-mono text-xs tracking-wide text-[var(--color-ink-muted)]">
+            {wordCount} {wordCount === 1 ? "word" : "words"} · {documentText.length}{" "}
+            {documentText.length === 1 ? "character" : "characters"}
+          </span>
+          <button
+            onClick={handleCopy}
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+          >
+            {copyState === "copied" ? "Copied" : "Copy"}
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!documentText.trim()}
+            className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-accent)]"
+          >
+            Export
+          </button>
+          <div className="mx-1 h-5 w-px bg-[var(--color-border)]" />
+          {isGuest ? (
           <div className="group relative">
             <span
               ref={creditsRef}
@@ -161,8 +191,28 @@ export default function TopBar({
             </div>
           </div>
         ) : (
-          user && <UserMenu user={user} onSignOut={onSignOut} />
-        )}
+            user && <UserMenu user={user} onSignOut={onSignOut} />
+          )}
+        </div>
+
+        {/* Mobile cluster — the same actions, collapsed into one menu since
+            none of the above fits next to the composer on a narrow header. */}
+        <div className="flex items-center gap-2 sm:hidden">
+          <span className="font-mono text-[11px] text-[var(--color-ink-muted)]">{wordCount}w</span>
+          <MobileActionsMenu
+            wordCount={wordCount}
+            charCount={documentText.length}
+            copyState={copyState}
+            onCopy={handleCopy}
+            onExport={handleExport}
+            exportDisabled={!documentText.trim()}
+            isGuest={isGuest}
+            tier={tier}
+            creditsRemaining={creditsRemaining}
+            user={user}
+            onSignOut={onSignOut}
+          />
+        </div>
       </div>
     </header>
   );
