@@ -12,12 +12,20 @@ export default function LegalPage({ title, children }: { title: string; children
             HandWrought
           </span>
         </Link>
-        <Link
-          href="/"
-          className="font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)]"
-        >
-          Back home
-        </Link>
+        <nav className="flex items-center gap-5">
+          <Link
+            href="/tools"
+            className="font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)]"
+          >
+            Tools
+          </Link>
+          <Link
+            href="/"
+            className="font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)]"
+          >
+            Back home
+          </Link>
+        </nav>
       </header>
 
       <main className="mx-auto w-full max-w-2xl flex-1 px-5 py-12 sm:py-16">

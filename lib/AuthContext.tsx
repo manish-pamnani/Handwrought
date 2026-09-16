@@ -16,7 +16,7 @@ import {
   type User,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { trackSignupCompleted } from "@/lib/analytics";
+import { trackSignupCompleted, trackReferredSignup } from "@/lib/analytics";
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -82,10 +82,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await linkWithCredential(auth.currentUser, credential);
       refreshUser();
       trackSignupCompleted("guest_upgrade");
+      trackReferredSignup();
       return;
     }
     await createUserWithEmailAndPassword(auth, email, password);
     trackSignupCompleted("new_account");
+    trackReferredSignup();
   }
 
   async function signIn(email: string, password: string) {
@@ -101,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await linkWithPopup(auth.currentUser, googleProvider);
         refreshUser();
         trackSignupCompleted("guest_upgrade");
+        trackReferredSignup();
         return;
       } catch (err) {
         // That Google identity is already spoken for — either the same
@@ -114,7 +117,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
     const result = await signInWithPopup(auth, googleProvider);
-    if (getAdditionalUserInfo(result)?.isNewUser) trackSignupCompleted("new_account");
+    if (getAdditionalUserInfo(result)?.isNewUser) {
+      trackSignupCompleted("new_account");
+      trackReferredSignup();
+    }
   }
 
   // Deliberately does NOT attempt to link/upgrade an anonymous guest — unlike

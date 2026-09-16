@@ -4,7 +4,22 @@ import { BLOG_POSTS } from "@/lib/blogPosts";
 const BASE_URL = "https://handwrought.online";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ["/", "/pricing", "/checkout", "/contact", "/docs", "/blog", "/privacy", "/refund", "/terms"];
+  const routes = [
+    "/",
+    "/pricing",
+    "/checkout",
+    "/contact",
+    "/docs",
+    "/blog",
+    "/privacy",
+    "/refund",
+    "/terms",
+    "/tools",
+    "/tools/nation-name-generator",
+    "/tools/villain-name-generator",
+    "/tools/planet-name-generator",
+    "/tools/city-name-generator",
+  ];
   const staticEntries = routes.map((route) => ({
     url: `${BASE_URL}${route}`,
     lastModified: new Date(),

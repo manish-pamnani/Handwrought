@@ -20,12 +20,20 @@ export default function PricingPage() {
             HandWrought
           </span>
         </Link>
-        <Link
-          href="/"
-          className="font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)]"
-        >
-          Back home
-        </Link>
+        <nav className="flex items-center gap-5">
+          <Link
+            href="/tools"
+            className="font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)]"
+          >
+            Tools
+          </Link>
+          <Link
+            href="/"
+            className="font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)]"
+          >
+            Back home
+          </Link>
+        </nav>
       </header>
 
       <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col items-center gap-8 px-5 py-12 sm:py-16">
