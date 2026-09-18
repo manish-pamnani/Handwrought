@@ -16,7 +16,7 @@ export function trackSuggestionReviewed(decision: "accepted" | "rejected") {
   sendGAEvent("event", "suggestion_reviewed", { decision });
 }
 
-export function trackPaywallShown(reason: "credits_exhausted") {
+export function trackPaywallShown(reason: "credits_exhausted" | "dictation_gated") {
   sendGAEvent("event", "paywall_shown", { reason });
 }
 

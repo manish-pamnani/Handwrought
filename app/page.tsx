@@ -14,6 +14,7 @@ import ImportModal from "@/components/ImportModal";
 import AuthForm from "@/components/AuthForm";
 import Modal from "@/components/Modal";
 import HelpModal from "@/components/HelpModal";
+import DictationButton from "@/components/DictationButton";
 import { useAuth } from "@/lib/AuthContext";
 import { getAppCheckHeader } from "@/lib/firebase";
 import { useAccess } from "@/lib/useAccess";
@@ -141,14 +142,14 @@ function Home() {
    *  document client-side, regardless of which mode comes back, so the
    *  review UI swaps in place instead of appending below the old draft. */
   // Centralizes every credits-exhausted → paywall trigger (handleSend's
-  // pre-flight and mid-stream checks, the outline entry points, ImportModal)
-  // so the paywall_shown event fires exactly once per real exhaustion,
-  // regardless of which path hit it. TopBar's manual "Upgrade" link opens
-  // the paywall directly via setPaywallOpen and intentionally skips this —
-  // that's a voluntary view, not an exhaustion signal.
-  function openPaywallFromExhaustion() {
+  // pre-flight and mid-stream checks, the outline entry points, ImportModal,
+  // DictationButton) so the paywall_shown event fires exactly once per real
+  // exhaustion, regardless of which path hit it. TopBar's manual "Upgrade"
+  // link opens the paywall directly via setPaywallOpen and intentionally
+  // skips this — that's a voluntary view, not an exhaustion signal.
+  function openPaywallFromExhaustion(reason: "credits_exhausted" | "dictation_gated" = "credits_exhausted") {
     setPaywallOpen(true);
-    trackPaywallShown("credits_exhausted");
+    trackPaywallShown(reason);
   }
 
   async function handleSend(text: string, opts?: { wholeDocument?: boolean; autoAccept?: boolean }): Promise<boolean> {
@@ -476,6 +477,17 @@ function Home() {
         toolbarRef={toolbarRowRef}
         creditsRef={creditsRef}
         helpRef={helpButtonRef}
+      />
+
+      {/* Paid-tier perk (see app/api/dictate/route.ts) — gates itself on
+          access.tier and triggers the shared paywall when a free/guest user
+          clicks it or a paid user's credits run out mid-use. */}
+      <DictationButton
+        user={user!}
+        tier={access.tier}
+        getEditor={() => documentPanelRef.current?.getEditor() ?? null}
+        onCreditsRemaining={access.setCreditsRemaining}
+        onPaywall={() => openPaywallFromExhaustion(access.tier ? "credits_exhausted" : "dictation_gated")}
       />
 
       {/* Fixed to the viewport corner, same reasoning as the terms/privacy

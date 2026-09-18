@@ -58,3 +58,15 @@ export type ChatApiError = {
   freeGenerationsUsed?: number;
   freeGenerationsLimit?: number;
 };
+
+export type DictateApiResponse = {
+  text: string;
+  creditsRemaining: number;
+};
+
+export type DictateApiError = {
+  error: string;
+  /** "paid_feature": free/guest user, no tier at all — upgrade to unlock.
+   *  "credits_exhausted": paid tier, but the credit balance hit 0. */
+  code?: "paid_feature" | "credits_exhausted";
+};

@@ -127,6 +127,23 @@ export const FREE_TIER_RATE_LIMIT_PER_HOUR = 20; // per IP, backstop against ses
 export const FREE_TIER_MAX_OUTPUT_TOKENS = 1200; // ~900 words, per unit
 export const FREE_TIER_MAX_IMPORT_OUTPUT_TOKENS = 3500; // per unit — imports reproduce the source content, not a short reply
 
+// Voice dictation (app/api/dictate/route.ts): a paid-tier-only perk, gated
+// on `tier !== null` alone — no free-tier fallback, no BYOK bypass. Real
+// Gemini audio cost is ~$0.001-0.002/min, so it isn't metered 1-credit-per-
+// click like chat/import (that would make a 10-second dictation cost the
+// same as a full document rewrite) — seconds accrue in
+// dictationSecondsBanked (see lib/serverCredits.ts) and only convert into a
+// real credit once the bank crosses this threshold, with the remainder
+// carried forward. 30 min/credit is deliberately generous headroom over
+// actual cost — it's a backstop against abuse, not a cost-recovery lever.
+export const DICTATION_SECONDS_PER_CREDIT = 30 * 60;
+
+// Hard per-recording caps, independent of the banking math above — bound
+// worst-case cost/abuse of a single request regardless of how it nets out
+// against the bank.
+export const DICTATION_MAX_CLIP_SECONDS = 120;
+export const DICTATION_MAX_FILE_BYTES = 10 * 1024 * 1024;
+
 // continue-sentence feature disabled, collides with Expand
 // export const CONTINUE_SENTENCE_INSTRUCTION =
 //   "Continue the sentence or paragraph naturally from exactly where the cursor is, matching the existing tone and style. Add roughly one short sentence to complete the current thought, then stop — don't start a new unrelated idea.";

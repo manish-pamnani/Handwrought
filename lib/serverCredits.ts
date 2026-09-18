@@ -8,9 +8,11 @@ export type Usage = {
   creditsRemaining: number;
   freeGenerationsUsed: number;
   freeGenerationsLimit: number;
+  /** seconds of dictation audio accrued toward the next credit spend — see accrueDictationSeconds */
+  dictationSecondsBanked: number;
 };
 
-export type UsageEventType = "chat" | "import";
+export type UsageEventType = "chat" | "import" | "dictate";
 
 export type UsageEvent = {
   id: string;
@@ -34,6 +36,7 @@ export async function getUsage(uid: string): Promise<Usage> {
   const data = snap.data();
   const freeGenerationsUsed = typeof data?.freeGenerationsUsed === "number" ? data.freeGenerationsUsed : 0;
   const tier = isTier(data?.tier) ? data.tier : null;
+  const dictationSecondsBanked = typeof data?.dictationSecondsBanked === "number" ? data.dictationSecondsBanked : 0;
 
   if (!tier) {
     return {
@@ -41,6 +44,7 @@ export async function getUsage(uid: string): Promise<Usage> {
       creditsRemaining: Math.max(0, FREE_GENERATIONS_LIMIT - freeGenerationsUsed),
       freeGenerationsUsed,
       freeGenerationsLimit: FREE_GENERATIONS_LIMIT,
+      dictationSecondsBanked,
     };
   }
 
@@ -56,6 +60,7 @@ export async function getUsage(uid: string): Promise<Usage> {
     creditsRemaining,
     freeGenerationsUsed,
     freeGenerationsLimit: FREE_GENERATIONS_LIMIT,
+    dictationSecondsBanked,
   };
 }
 
@@ -69,6 +74,38 @@ export async function consumeCredit(uid: string): Promise<number> {
     const next = Math.max(0, current - 1);
     tx.set(ref, { creditsRemaining: next }, { merge: true });
     return next;
+  });
+}
+
+// Voice dictation isn't charged 1-credit-per-click like chat/import — a
+// short dictation shouldn't cost the same as a full document rewrite.
+// Instead, every successful dictation adds its clip length to a running
+// bank, and only once the bank crosses `secondsPerCredit` does a real
+// credit actually get spent, with the remainder carried forward. Reads
+// current `creditsRemaining` inside the same transaction (rather than
+// trusting a pre-flight check the caller already did), so this can never
+// spend more credits than the account actually has, even under concurrent
+// requests — mirrors consumeCredit's Math.max(0, ...) floor.
+export async function accrueDictationSeconds(
+  uid: string,
+  seconds: number,
+  secondsPerCredit: number
+): Promise<{ creditsRemaining: number; dictationSecondsBanked: number; creditsSpent: number }> {
+  const ref = getAdminDb().collection("users").doc(uid);
+  return getAdminDb().runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    const currentBank = typeof data?.dictationSecondsBanked === "number" ? data.dictationSecondsBanked : 0;
+    const currentCredits = typeof data?.creditsRemaining === "number" ? data.creditsRemaining : 0;
+
+    const totalBank = currentBank + seconds;
+    const creditsWanted = Math.floor(totalBank / secondsPerCredit);
+    const creditsSpent = Math.min(creditsWanted, currentCredits);
+    const nextBank = totalBank - creditsSpent * secondsPerCredit;
+    const nextCredits = currentCredits - creditsSpent;
+
+    tx.set(ref, { dictationSecondsBanked: nextBank, creditsRemaining: nextCredits }, { merge: true });
+    return { creditsRemaining: nextCredits, dictationSecondsBanked: nextBank, creditsSpent };
   });
 }
 

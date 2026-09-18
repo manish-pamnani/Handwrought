@@ -11,7 +11,7 @@ import { TIER_NAMES, type Tier } from "@/lib/constants";
 
 type UsageEvent = {
   id: string;
-  type: "chat" | "import";
+  type: "chat" | "import" | "dictate";
   spent: "credit" | "free";
   createdAt: string | null;
 };
@@ -27,6 +27,7 @@ type UsageData = {
 const TYPE_LABEL: Record<UsageEvent["type"], string> = {
   chat: "Writing generation",
   import: "Document import",
+  dictate: "Voice dictation",
 };
 
 function BackIcon() {
