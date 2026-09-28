@@ -10,7 +10,6 @@ import {
   FREE_TIER_RATE_LIMIT_PER_HOUR,
 } from "@/lib/constants";
 import { callGeminiWithRotation, extractGeminiUsage, type GeminiModel, type GeminiUsage } from "@/lib/geminiModels";
-import { verifyAppCheck } from "@/lib/appCheck";
 import { checkRateLimit, getClientIp } from "@/lib/rateLimit";
 import type { ChatMessage } from "@/lib/types";
 
@@ -127,10 +126,6 @@ async function callGemini(
 }
 
 export async function POST(req: Request) {
-  if (!(await verifyAppCheck(req))) {
-    return NextResponse.json({ error: "Request could not be verified." }, { status: 403 });
-  }
-
   const authHeader = req.headers.get("authorization") ?? "";
   const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
   if (!idToken) {

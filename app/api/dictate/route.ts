@@ -3,7 +3,6 @@ import { getAdminAuth } from "@/lib/firebaseAdmin";
 import { getUsage, accrueDictationSeconds, logUsageEvent } from "@/lib/serverCredits";
 import { DICTATION_MAX_CLIP_SECONDS, DICTATION_MAX_FILE_BYTES, DICTATION_SECONDS_PER_CREDIT } from "@/lib/constants";
 import { callGeminiWithRotation, extractGeminiUsage, type GeminiModel, type GeminiUsage } from "@/lib/geminiModels";
-import { verifyAppCheck } from "@/lib/appCheck";
 
 export const runtime = "nodejs";
 
@@ -73,10 +72,6 @@ async function callGemini(
 }
 
 export async function POST(request: Request) {
-  if (!(await verifyAppCheck(request))) {
-    return NextResponse.json({ error: "Request could not be verified." }, { status: 403 });
-  }
-
   const authHeader = request.headers.get("authorization") ?? "";
   const idToken = authHeader.startsWith("Bearer ") ? authHeader.slice("Bearer ".length) : null;
   if (!idToken) {

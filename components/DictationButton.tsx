@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import type { User } from "firebase/auth";
-import { getAppCheckHeader } from "@/lib/firebase";
 import { DICTATION_MAX_CLIP_SECONDS } from "@/lib/constants";
 import type { DictateApiResponse, DictateApiError } from "@/lib/types";
 
@@ -281,14 +280,13 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
     setStatus("transcribing");
     try {
       const token = await user.getIdToken();
-      const appCheckHeaders = await getAppCheckHeader();
       const formData = new FormData();
       formData.append("audio", blob, `dictation.${mimeType.includes("ogg") ? "ogg" : "webm"}`);
       formData.append("durationSeconds", String(durationSeconds));
 
       const res = await fetch("/api/dictate", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, ...appCheckHeaders },
+        headers: { Authorization: `Bearer ${token}` },
         body: formData,
       });
       const data: DictateApiResponse | DictateApiError | null = await res.json().catch(() => null);
