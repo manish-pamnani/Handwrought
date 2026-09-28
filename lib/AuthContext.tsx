@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   onAuthStateChanged,
   signInAnonymously,
@@ -23,6 +23,8 @@ const googleProvider = new GoogleAuthProvider();
 type AuthContextValue = {
   user: User | null;
   loading: boolean;
+  /** uid of a guest created during this page load — it has no server-side usage yet, see useAccess */
+  freshGuestUid: string | null;
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUpWithGoogle: () => Promise<void>;
@@ -39,9 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Bumped after linkWithCredential/linkWithPopup — see refreshUser below.
   // Its value is never read; it exists purely to force a re-render.
   const [, forceRerender] = useState(0);
+  // A guest minted by signInGuest on this page load. Set in the same
+  // onAuthStateChanged callback as `user`, so the first render that sees the
+  // new guest already knows it's fresh (signInAnonymously's promise can
+  // resolve after that callback fires, which would be too late).
+  const [freshGuestUid, setFreshGuestUid] = useState<string | null>(null);
+  const guestSignInPending = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
+      if (u?.isAnonymous && guestSignInPending.current) {
+        guestSignInPending.current = false;
+        setFreshGuestUid(u.uid);
+      }
       setUser(u);
       setLoading(false);
     });
@@ -131,7 +143,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signInGuest() {
-    await signInAnonymously(auth);
+    guestSignInPending.current = true;
+    try {
+      await signInAnonymously(auth);
+    } catch (err) {
+      guestSignInPending.current = false;
+      throw err;
+    }
   }
 
   async function signOutUser() {
@@ -140,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, signUp, signIn, signUpWithGoogle, signInWithGoogle, signInGuest, signOutUser }}
+      value={{ user, loading, freshGuestUid, signUp, signIn, signUpWithGoogle, signInWithGoogle, signInGuest, signOutUser }}
     >
       {children}
     </AuthContext.Provider>

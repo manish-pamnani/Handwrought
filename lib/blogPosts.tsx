@@ -13,6 +13,7 @@ export type BlogPost = {
   title: string;
   description: string;
   date: string; // ISO date, e.g. "2026-09-10"
+  updated: string; // ISO date of the last real revision; bump it when editing a post
   content: ReactNode;
 };
 
@@ -23,6 +24,7 @@ export const BLOG_POSTS: BlogPost[] = [
     description:
       "Draft here, ask there, paste back: why that workflow broke down, and what I built instead: AI edits that land inside the document, not a separate chat tab.",
     date: "2026-09-10",
+    updated: "2026-09-28",
     content: (
       <>
         <p>
@@ -164,6 +166,7 @@ export const BLOG_POSTS: BlogPost[] = [
     description:
       "Most AI tools auto-apply by default. I picked friction on purpose for HandWrought: why review-first beats auto-apply-then-undo, and what it actually costs.",
     date: "2026-09-09",
+    updated: "2026-09-28",
     content: (
       <>
         <p>
@@ -271,6 +274,7 @@ export const BLOG_POSTS: BlogPost[] = [
     description:
       "A practical framework for accepting, rejecting, or asking again on an AI suggestion, including whether rejecting actually costs you a credit.",
     date: "2026-09-09",
+    updated: "2026-09-28",
     content: (
       <>
         <p>
@@ -427,6 +431,7 @@ export const BLOG_POSTS: BlogPost[] = [
     description:
       "Not every one-time-purchase AI writing tool works the same way. What the term actually covers, and how HandWrought's credit packs differ from unlimited-forever tools.",
     date: "2026-09-09",
+    updated: "2026-09-28",
     content: (
       <>
         <p>
