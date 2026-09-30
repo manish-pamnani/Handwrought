@@ -523,6 +523,9 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
         <Link href="/contact" className="hover:text-[var(--color-ink)]">
           Contact
         </Link>
+        <Link href="/blog" className="hover:text-[var(--color-ink)]">
+          Blog
+        </Link>
       </nav>
 
       <ImportModal
