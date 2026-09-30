@@ -36,7 +36,7 @@ const LINKS: Array<{ label: string; href: string }> = [
 
 export default function HelpModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <Modal open={open} onClose={onClose} title="Help">
+    <Modal open={open} onClose={onClose} title="Help" keepMounted>
       <div className="flex flex-wrap gap-2">
         {LINKS.map((link) => (
           <Link

@@ -7,9 +7,13 @@ type ModalProps = {
   onClose: () => void;
   title?: string;
   children: ReactNode;
+  // Keep the modal in the DOM while closed (hidden via `display: none`)
+  // instead of unmounting it — used by HelpModal so its links and shortcut
+  // list are in the server-rendered HTML for crawlers.
+  keepMounted?: boolean;
 };
 
-export default function Modal({ open, onClose, title, children }: ModalProps) {
+export default function Modal({ open, onClose, title, children, keepMounted = false }: ModalProps) {
   useEffect(() => {
     if (!open) return;
     function handleKeyDown(e: KeyboardEvent) {
@@ -19,10 +23,14 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open && !keepMounted) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={onClose}>
+    <div
+      className={`fixed inset-0 z-50 ${open ? "flex" : "hidden"} items-center justify-center bg-black/40 px-4`}
+      onClick={onClose}
+      aria-hidden={!open}
+    >
       <div
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-lg border border-[var(--color-border)] bg-[var(--color-paper)] p-5 shadow-lg"

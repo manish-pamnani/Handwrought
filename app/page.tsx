@@ -43,14 +43,22 @@ function makeId(): string {
 }
 
 export default function LandingPage() {
+  // Help modal lives outside AuthGate (and Home's own loading gate) so it's
+  // part of the server-rendered HTML — both gates render only RefreshLoader
+  // until Firebase resolves on the client, which crawlers never wait for.
+  const [helpOpen, setHelpOpen] = useState(false);
+
   return (
-    <AuthGate>
-      <Home />
-    </AuthGate>
+    <>
+      <AuthGate>
+        <Home onOpenHelp={() => setHelpOpen(true)} />
+      </AuthGate>
+      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+    </>
   );
 }
 
-function Home() {
+function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
   const { user, signOutUser } = useAuth();
   // AuthGate guarantees `user` is non-null (anonymous guests included) by the time Home renders.
   const uid = user!.uid;
@@ -70,7 +78,6 @@ function Home() {
   const [showPolishUpsell, setShowPolishUpsell] = useState(false);
   const [signUpOpen, setSignUpOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [welcomeTopic, setWelcomeTopic] = useState("");
   const [composerError, setComposerError] = useState<string | null>(null);
@@ -493,14 +500,12 @@ function Home() {
           own layout. Mirrors Excalidraw's "Shortcuts & help" placement. */}
       <button
         ref={helpButtonRef}
-        onClick={() => setHelpOpen(true)}
+        onClick={onOpenHelp}
         aria-label="Shortcuts & help"
         className="fixed right-5 bottom-5 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper)] font-sans text-sm font-semibold text-[var(--color-ink-muted)] shadow-sm transition-colors hover:bg-[var(--color-paper-inset)] hover:text-[var(--color-ink)]"
       >
         ?
       </button>
-
-      <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Fixed and out of the editor's own document flow on purpose — this
           must never be able to affect the editor's size, no matter what
