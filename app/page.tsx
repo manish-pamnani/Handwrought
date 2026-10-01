@@ -502,7 +502,7 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
         ref={helpButtonRef}
         onClick={onOpenHelp}
         aria-label="Shortcuts & help"
-        className="fixed right-5 bottom-5 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper)] font-sans text-sm font-semibold text-[var(--color-ink-muted)] shadow-sm transition-colors hover:bg-[var(--color-paper-inset)] hover:text-[var(--color-ink)]"
+        className="fixed right-5 bottom-5 z-30 flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper)] font-sans text-sm font-semibold text-[var(--color-ink-muted)] shadow-sm transition-colors hover:bg-[var(--color-paper-inset)] hover:text-[var(--color-ink)] hover:cursor-pointer"
       >
         ?
       </button>

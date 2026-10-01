@@ -332,7 +332,7 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
         disabled={status === "transcribing"}
         aria-label={label}
         title={label}
-        className={`flex h-9 items-center justify-center gap-2 rounded-full border font-sans text-sm font-semibold shadow-sm transition-colors ${
+        className={`flex h-9 items-center justify-center gap-2 rounded-full border font-sans text-sm font-semibold shadow-sm transition-colors hover:cursor-pointer ${
           status === "recording"
             ? "w-auto border-red-300 bg-red-50 px-3 text-red-600"
             : status === "transcribing"

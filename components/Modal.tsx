@@ -41,7 +41,7 @@ export default function Modal({ open, onClose, title, children, keepMounted = fa
             <button
               onClick={onClose}
               aria-label="Close"
-              className="rounded-md px-2 py-1 font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-paper-inset)]"
+              className="rounded-md px-2 py-1 font-sans text-sm text-[var(--color-ink-muted)] transition-colors hover:bg-[var(--color-paper-inset)] hover:cursor-pointer"
             >
               ×
             </button>
