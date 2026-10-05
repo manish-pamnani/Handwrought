@@ -148,7 +148,7 @@ export default function DocumentComposer({
         <button
           type="submit"
           disabled={!topic.trim() || disabled}
-          className={`shrink-0 rounded-full bg-[var(--color-accent)] font-sans font-semibold whitespace-nowrap text-white transition-all duration-[420ms] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 ${
+          className={`shrink-0 rounded-full bg-[var(--color-accent)] font-sans font-semibold whitespace-nowrap text-white transition-all duration-[420ms] hover:bg-[var(--color-accent-hover)] hover:cursor-pointer  disabled:opacity-40 ${
             docked ? "px-2.5 py-1 text-[11px]" : "px-4 py-2 text-sm"
           }`}
         >

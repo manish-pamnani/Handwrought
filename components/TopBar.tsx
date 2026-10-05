@@ -121,14 +121,14 @@ export default function TopBar({
           </span>
           <button
             onClick={handleCopy}
-            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)] hover:cursor-pointer"
           >
             {copyState === "copied" ? "Copied" : "Copy"}
           </button>
           <button
             onClick={handleExport}
             disabled={!documentText.trim()}
-            className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-accent)]"
+            className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-accent)] hover:cursor-pointer"
           >
             Export
           </button>

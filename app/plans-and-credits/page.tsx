@@ -113,7 +113,7 @@ function PlansAndCreditsContent() {
           <button
             type="button"
             onClick={() => setPlansModalOpen(true)}
-            className="shrink-0 rounded-full border border-[var(--color-border)] px-4 py-2 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+            className="shrink-0 rounded-full border border-[var(--color-border)] px-4 py-2 font-sans text-sm font-medium text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)] hover:cursor-pointer"
           >
             {tier ? "Buy more credits" : "Buy credits"}
           </button>

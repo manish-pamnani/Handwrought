@@ -181,7 +181,7 @@ export default function PlansPanel({
                   type="button"
                   onClick={() => openCheckout(tier)}
                   disabled={!paddle}
-                  className="mt-5 w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+                  className="mt-5 w-full rounded-full bg-[var(--color-accent)] px-4 py-2.5 font-sans text-sm font-semibold text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-40 hover:cursor-pointer"
                 >
                   {paddle ? (owned ? "Buy another" : "Continue") : "Loading…"}
                 </button>

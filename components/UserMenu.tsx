@@ -113,7 +113,7 @@ export default function UserMenu({ user, onSignOut }: { user: User; onSignOut: (
         ) : (
           <PlaceholderAvatar />
         )}
-        <span className="max-w-[140px] truncate font-sans text-xs font-medium text-[var(--color-ink)]">
+        <span className="max-w-[140px] truncate font-sans text-xs font-medium text-[var(--color-ink)] hover:cursor-pointer">
           {name || email}
         </span>
       </button>
@@ -150,7 +150,7 @@ export default function UserMenu({ user, onSignOut }: { user: User; onSignOut: (
                 setOpen(false);
                 setPlansModalOpen(true);
               }}
-              className="flex items-center gap-2.5 px-3.5 py-2 text-left font-sans text-[13px] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)]"
+              className="flex items-center gap-2.5 px-3.5 py-2 text-left font-sans text-[13px] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)] hover:cursor-pointer"
             >
               <CrownIcon />
               Upgrade to Pro
