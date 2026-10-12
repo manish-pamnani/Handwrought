@@ -160,7 +160,7 @@ export default function MobileActionsMenu({
                         setOpen(false);
                         onSignOut();
                       }}
-                      className="py-1 text-left font-sans text-[13px] font-medium text-red-600 transition-colors"
+                      className="py-1 text-left font-sans text-[13px] font-medium text-red-600 transition-colors hover:cursor-pointer"
                     >
                       Log out
                     </button>

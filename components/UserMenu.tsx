@@ -182,7 +182,7 @@ export default function UserMenu({ user, onSignOut }: { user: User; onSignOut: (
                 onSignOut();
               }}
               role="menuitem"
-              className="flex w-full items-center gap-2.5 px-3.5 py-2 font-sans text-[13px] font-medium text-red-600 transition-colors hover:bg-[var(--color-paper-inset)]"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2 font-sans text-[13px] font-medium text-red-600 transition-colors hover:bg-[var(--color-paper-inset)] hover:cursor-pointer"
             >
               <LogoutIcon />
               Log out

@@ -5,6 +5,7 @@ import type { Editor } from "@tiptap/react";
 import type { User } from "firebase/auth";
 import { DICTATION_MAX_CLIP_SECONDS } from "@/lib/constants";
 import type { DictateApiResponse, DictateApiError } from "@/lib/types";
+import { startDeepgramStream, extractKeywordsFromDoc, type StreamSession } from "@/lib/stt/deepgramStream";
 
 type DictationButtonProps = {
   user: User;
@@ -20,16 +21,7 @@ type Status = "idle" | "recording" | "transcribing";
 type DocRange = { from: number; to: number };
 
 const PREFERRED_MIME_TYPES = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
-// One request, one clip — reliability and transcription accuracy both beat
-// the earlier chunked/live-preview attempts (browser speech-recognition
-// support is too inconsistent across platforms to build live text on, and
-// splitting the clip into chunks introduced accuracy-hurting seams at chunk
-// boundaries). "Is it listening" and "what did I say" are solved
-// separately now: the waveform below proves the mic's live and reacting;
-// the transcript itself is one clean, whole-clip Gemini call, same as it
-// ever was.
-const BAR_COUNT = 4;
-const BAR_SENSITIVITY = [0.75, 1, 0.85, 1.05]; // per-bar multiplier so they don't all move in lockstep
+const WAVEFORM_BAR_COUNT = 38;
 
 function pickMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "";
@@ -51,35 +43,40 @@ function MicIcon() {
   );
 }
 
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.5 3.5l9 9M12.5 3.5l-9 9" />
+    </svg>
+  );
+}
+
 function StopIcon() {
   return (
-    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-      <rect x="3" y="3" width="10" height="10" rx="1.5" />
+    <span className="h-3.5 w-3.5 rounded-[3px] bg-[var(--color-ink)]" aria-hidden="true" />
+  );
+}
+
+function ArrowUpIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4.5 w-4.5" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8 13.5V2.5m0 0L3.5 7m4.5-4.5L12.5 7" />
     </svg>
   );
 }
 
 function SpinnerIcon() {
   return (
-    <span className="h-3.5 w-3.5 animate-spin rounded-full border-[1.5px] border-[var(--color-border)] border-t-[var(--color-ink-muted)]" />
+    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
   );
 }
 
-// True whenever the character right before `pos` exists and isn't
-// whitespace — used so dictated text never runs into whatever's already
-// there ("wordDictated" instead of "word Dictated").
 function needsLeadingSpace(editor: Editor, pos: number): boolean {
   if (pos <= 0) return false;
   const charBefore = editor.state.doc.textBetween(pos - 1, pos, "\n");
   return charBefore !== "" && !/\s/.test(charBefore);
 }
 
-// Defends against the anchor position outliving the document it was
-// captured against — the transcription request takes a few seconds, during
-// which the user could have clicked elsewhere and edited the doc. Clamps
-// `to` to the doc's current end, or returns null if even `from` no longer
-// exists, so a stale position degrades to "fall back to inserting at the
-// cursor" instead of throwing a RangeError.
 function clampRange(editor: Editor, range: DocRange): DocRange | null {
   const size = editor.state.doc.content.size;
   if (range.from > size) return null;
@@ -88,31 +85,28 @@ function clampRange(editor: Editor, range: DocRange): DocRange | null {
 
 export default function DictationButton({ user, tier, getEditor, onCreditsRemaining, onPaywall }: DictationButtonProps) {
   const [status, setStatus] = useState<Status>("idle");
+  const [sessionFinalized, setSessionFinalized] = useState<string[]>([]);
+  const [interimText, setInterimText] = useState<string>("");
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
+  const modeRef = useRef<"streaming" | "fallback">("streaming");
+  const streamSessionRef = useRef<StreamSession | null>(null);
+  const pendingCleanupsRef = useRef(0);
+  const insertPosRef = useRef(0);
+
+  // Fallback MediaRecorder refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const startedAtRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // True from the moment startRecording is invoked until handleStop fully
-  // finishes — a ref (not state) specifically so it's readable synchronously
-  // on the very next click, with no risk of a stale closure letting a rapid
-  // double-click start a second overlapping session.
   const isActiveRef = useRef(false);
-  // Where the dictated text should land — captured at recording start (and
-  // clearing any active selection right then, the way typing over one
-  // would), reused for the single insert once the transcript is back.
   const insertAnchorRef = useRef<DocRange | null>(null);
 
-  // Live waveform — proves the mic is open and actually hearing the user in
-  // real time, without depending on speech-recognition or transcription
-  // accuracy at all. Reads raw amplitude off the same MediaStream already
-  // being recorded via an AnalyserNode, and writes bar heights straight to
-  // the DOM through refs (not React state) so it can run every animation
-  // frame without triggering a re-render per frame.
+  // Live waveform refs
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -120,16 +114,21 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
 
   useEffect(
     () => () => {
-      // Unmount mid-recording (e.g. navigating away) — release the mic and
-      // clear timers rather than leaving the recording indicator lit forever.
+      streamSessionRef.current?.abort();
       streamRef.current?.getTracks().forEach((t) => t.stop());
-      if (timerRef.current) clearInterval(timerRef.current);
-      if (autoStopRef.current) clearTimeout(autoStopRef.current);
+      stopTimers();
       stopWaveform();
       isActiveRef.current = false;
     },
     []
   );
+
+  // Auto-scroll transcript container as speech accumulates
+  useEffect(() => {
+    if (transcriptScrollRef.current) {
+      transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
+    }
+  }, [sessionFinalized, interimText]);
 
   function stopTimers() {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -144,33 +143,37 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
       if (!Ctor) return;
       const audioCtx = new Ctor();
       const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 32;
-      // Deliberately never connected to audioCtx.destination — this reads
-      // the mic signal for visualization only, never plays it back.
+      analyser.fftSize = 128; // 64 frequency bins
+      analyser.smoothingTimeConstant = 0.65;
       audioCtx.createMediaStreamSource(stream).connect(analyser);
       audioCtxRef.current = audioCtx;
       analyserRef.current = analyser;
 
-      const data = new Uint8Array(analyser.frequencyBinCount);
+      const freqData = new Uint8Array(analyser.frequencyBinCount);
       const tick = () => {
-        analyser.getByteTimeDomainData(data);
-        let sumSquares = 0;
-        for (let i = 0; i < data.length; i++) {
-          const deviation = (data[i] - 128) / 128;
-          sumSquares += deviation * deviation;
+        analyser.getByteFrequencyData(freqData);
+
+        let sum = 0;
+        for (let i = 0; i < freqData.length; i++) {
+          sum += freqData[i];
         }
-        const level = Math.min(1, Math.sqrt(sumSquares / data.length) * 4); // 0 (silence) .. 1 (loud)
+        const avg = sum / freqData.length;
+        const speechActivity = Math.min(1.4, avg / 24);
+
         barRefs.current.forEach((bar, i) => {
           if (!bar) return;
-          const scale = 0.25 + level * BAR_SENSITIVITY[i % BAR_SENSITIVITY.length] * 0.75;
-          bar.style.transform = `scaleY(${Math.min(1, Math.max(0.25, scale))})`;
+          const binIndex = Math.min(freqData.length - 1, Math.floor((i / WAVEFORM_BAR_COUNT) * 44) + 1);
+          const binNorm = freqData[binIndex] / 255;
+          const centerDist = Math.abs(i - WAVEFORM_BAR_COUNT / 2) / (WAVEFORM_BAR_COUNT / 2);
+          const arc = 1 - centerDist * 0.4;
+          const scale = Math.max(0.18, Math.min(1.0, (binNorm * 1.3 + speechActivity * 0.35) * arc));
+          bar.style.transform = `scaleY(${scale})`;
         });
         rafRef.current = requestAnimationFrame(tick);
       };
       rafRef.current = requestAnimationFrame(tick);
     } catch {
-      // Best-effort only — no waveform if AudioContext/AnalyserNode aren't
-      // available or usable for any reason. Recording itself is unaffected.
+      // Best-effort waveform
     }
   }
 
@@ -182,59 +185,243 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
     audioCtxRef.current?.close().catch(() => {});
     audioCtxRef.current = null;
     barRefs.current.forEach((bar) => {
-      if (bar) bar.style.transform = "scaleY(0.25)";
+      if (bar) bar.style.transform = "scaleY(0.18)";
     });
+  }
+
+  function insertCleanedText(editor: Editor, text: string) {
+    const docSize = editor.state.doc.content.size;
+    const safePos = Math.min(insertPosRef.current, docSize);
+    const prefix = needsLeadingSpace(editor, safePos) ? " " : "";
+    const content = `${prefix}${text}`;
+    editor.chain().insertContentAt(safePos, { type: "text", text: content }).focus().run();
+    insertPosRef.current = safePos + content.length;
   }
 
   async function startRecording() {
     if (isActiveRef.current) return;
     isActiveRef.current = true;
     setError(null);
-    const mimeType = pickMimeType();
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-      chunksRef.current = [];
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
-      recorder.onstop = () => handleStop(recorder.mimeType || mimeType || "audio/webm");
-      mediaRecorderRef.current = recorder;
-      startedAtRef.current = Date.now();
-      recorder.start();
-      setStatus("recording");
-      setElapsed(0);
-      timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000)), 250);
-      autoStopRef.current = setTimeout(() => stopRecording(), DICTATION_MAX_CLIP_SECONDS * 1000);
-      startWaveform(stream);
+    setSessionFinalized([]);
+    setInterimText("");
+    setElapsed(0);
+    startedAtRef.current = Date.now();
 
-      // Anchor the insertion point at wherever the cursor is right now —
-      // replacing an active selection immediately, the same way starting to
-      // type over one would clear it.
-      const editor = getEditor();
-      if (editor) {
-        const { from, to } = editor.state.selection;
-        if (to > from) editor.chain().insertContentAt({ from, to }, "").focus().run();
-        insertAnchorRef.current = { from, to: from };
-      } else {
-        insertAnchorRef.current = null;
-      }
+    const editor = getEditor();
+    if (editor) {
+      const { from, to } = editor.state.selection;
+      if (to > from) editor.chain().insertContentAt({ from, to }, "").focus().run();
+      insertPosRef.current = from;
+      insertAnchorRef.current = { from, to: from };
+    } else {
+      insertPosRef.current = 0;
+      insertAnchorRef.current = null;
+    }
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
     } catch {
       setError("Couldn't access your microphone — check browser permissions.");
       isActiveRef.current = false;
+      return;
+    }
+
+    startWaveform(stream);
+    timerRef.current = setInterval(() => setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000)), 250);
+    autoStopRef.current = setTimeout(() => stopRecording(), DICTATION_MAX_CLIP_SECONDS * 1000);
+
+    // Attempt streaming path with Deepgram Nova-3
+    try {
+      const idToken = await user.getIdToken();
+      const tokenRes = await fetch("/api/dictate/token", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
+
+      if (!tokenRes.ok) {
+        const errData = await tokenRes.json().catch(() => null);
+        if (errData?.code === "credits_exhausted" || errData?.code === "paid_feature") {
+          stopTimers();
+          stopWaveform();
+          stream.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
+          isActiveRef.current = false;
+          onPaywall();
+          return;
+        }
+        throw new Error("Unable to mint streaming token");
+      }
+
+      const { token } = await tokenRes.json();
+      const keywords = editor ? extractKeywordsFromDoc(editor.getText()) : [];
+
+      const session = await startDeepgramStream(
+        token,
+        {
+          onPartial: (partialText) => {
+            const ed = getEditor();
+            if (!ed) return;
+            setInterimText(partialText);
+            if (!partialText) {
+              ed.commands.clearGhostText();
+            } else {
+              const pos = Math.min(insertPosRef.current, ed.state.doc.content.size);
+              const prefix = needsLeadingSpace(ed, pos) ? " " : "";
+              ed.commands.setGhostText(`${prefix}${partialText}`, pos);
+            }
+          },
+          onSentenceFinal: async (rawSentence) => {
+            const ed = getEditor();
+            if (!ed || !rawSentence.trim()) return;
+            const finalizedIndex = sessionFinalized.length;
+
+            ed.commands.clearGhostText();
+            setInterimText("");
+            setSessionFinalized((prev) => [...prev, rawSentence.trim()]);
+
+            // Background Gemini cleanup pass
+            pendingCleanupsRef.current++;
+            try {
+              const docSize = ed.state.doc.content.size;
+              const pos = Math.min(insertPosRef.current, docSize);
+              const contextBefore = ed.state.doc.textBetween(Math.max(0, pos - 200), pos, "\n");
+              const cleanRes = await fetch("/api/dictate/cleanup", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${idToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ text: rawSentence, contextBefore }),
+              });
+              const cleanData = await cleanRes.json().catch(() => null);
+              const cleaned = cleanData?.cleaned || rawSentence;
+
+              // Update the sentence in visible dictation list to polished prose
+              setSessionFinalized((prev) => {
+                const next = [...prev];
+                if (next[finalizedIndex] !== undefined) {
+                  next[finalizedIndex] = cleaned;
+                }
+                return next;
+              });
+
+              insertCleanedText(ed, cleaned);
+            } catch (err) {
+              console.warn("Cleanup pass failed, inserting raw text:", err);
+              insertCleanedText(ed, rawSentence);
+            } finally {
+              pendingCleanupsRef.current = Math.max(0, pendingCleanupsRef.current - 1);
+              if (pendingCleanupsRef.current === 0 && !isActiveRef.current) {
+                setStatus("idle");
+              }
+            }
+          },
+          onError: (err) => {
+            console.warn("Streaming STT warning:", err);
+          },
+        },
+        { keywords, existingStream: stream }
+      );
+
+      modeRef.current = "streaming";
+      streamSessionRef.current = session;
+      setStatus("recording");
+    } catch (streamErr) {
+      console.warn("Deepgram streaming unavailable, using record-and-upload fallback:", streamErr);
+      modeRef.current = "fallback";
+      startFallbackRecorder(stream);
     }
   }
 
-  function stopRecording() {
-    stopTimers();
-    stopWaveform();
-    mediaRecorderRef.current?.stop();
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
+  function startFallbackRecorder(stream: MediaStream) {
+    const mimeType = pickMimeType();
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    chunksRef.current = [];
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    recorder.onstop = () => handleFallbackStop(recorder.mimeType || mimeType || "audio/webm");
+    mediaRecorderRef.current = recorder;
+    recorder.start();
+    setStatus("recording");
   }
 
-  async function handleStop(mimeType: string) {
+  function cancelRecording() {
+    stopTimers();
+    stopWaveform();
+
+    const editor = getEditor();
+    editor?.commands.clearGhostText();
+
+    if (streamSessionRef.current) {
+      streamSessionRef.current.abort();
+      streamSessionRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+    chunksRef.current = [];
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+
+    setSessionFinalized([]);
+    setInterimText("");
+    isActiveRef.current = false;
+    setStatus("idle");
+  }
+
+  async function stopRecording() {
+    stopTimers();
+    stopWaveform();
+
+    const editor = getEditor();
+    editor?.commands.clearGhostText();
+
+    if (modeRef.current === "streaming" && streamSessionRef.current) {
+      const session = streamSessionRef.current;
+      streamSessionRef.current = null;
+      isActiveRef.current = false;
+
+      if (pendingCleanupsRef.current > 0) {
+        setStatus("transcribing");
+      } else {
+        setStatus("idle");
+      }
+
+      try {
+        const { durationSeconds } = await session.stop();
+        const idToken = await user.getIdToken();
+        const accrueRes = await fetch("/api/dictate/accrue", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${idToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ durationSeconds }),
+        });
+        const accrueData = await accrueRes.json().catch(() => null);
+        if (accrueData?.creditsRemaining !== undefined) {
+          onCreditsRemaining(accrueData.creditsRemaining);
+        }
+      } catch (err) {
+        console.warn("Failed to accrue dictation duration:", err);
+      } finally {
+        if (pendingCleanupsRef.current === 0) {
+          setStatus("idle");
+        }
+      }
+    } else {
+      mediaRecorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+  }
+
+  async function handleFallbackStop(mimeType: string) {
     const durationSeconds = Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000));
     const blob = new Blob(chunksRef.current, { type: mimeType });
     chunksRef.current = [];
@@ -279,15 +466,9 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
       if (safeAnchor) {
         editor.chain().insertContentAt(safeAnchor, { type: "text", text: data.text }).focus().run();
       } else {
-        // No anchor (editor wasn't available at record start, or it's since
-        // gone stale) — fall back to inserting at wherever the cursor is now.
         const { from, to } = editor.state.selection;
         const prefix = needsLeadingSpace(editor, from) ? " " : "";
-        editor
-          .chain()
-          .insertContentAt({ from, to }, { type: "text", text: `${prefix}${data.text}` })
-          .focus()
-          .run();
+        editor.chain().insertContentAt({ from, to }, { type: "text", text: `${prefix}${data.text}` }).focus().run();
       }
     } catch {
       setError("Dictation failed — please try again.");
@@ -297,75 +478,132 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
     }
   }
 
-  function handleClick() {
+  function handleTriggerClick() {
     if (!tier) {
       onPaywall();
       return;
     }
-    if (status === "recording") {
-      stopRecording();
-    } else if (status === "idle" && !isActiveRef.current) {
+    if (status === "idle" && !isActiveRef.current) {
       startRecording();
     }
   }
 
   const isPaid = !!tier;
-  const label =
-    status === "recording"
-      ? "Stop dictating"
-      : status === "transcribing"
-        ? "Cleaning up your dictation…"
-        : isPaid
-          ? "Dictate"
-          : "Voice dictation — upgrade to unlock";
+  const fullDictationText = [...sessionFinalized, interimText].filter(Boolean).join(" ").trim();
 
   return (
-    <div className="fixed right-16 bottom-5 z-30">
-      {error && (
-        <p className="absolute right-0 bottom-full mb-1 whitespace-nowrap font-mono text-[10px] text-red-600">
-          {error}
-        </p>
+    <>
+      {/* Idle Trigger Button (Bottom right) */}
+      {status === "idle" && (
+        <div className="fixed right-16 bottom-5 z-30">
+          {error && (
+            <p className="absolute right-0 bottom-full mb-1 whitespace-nowrap font-mono text-[10px] text-red-600">
+              {error}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={handleTriggerClick}
+            aria-label={isPaid ? "Voice dictation" : "Voice dictation — upgrade to unlock"}
+            title={isPaid ? "Voice dictation" : "Voice dictation — upgrade to unlock"}
+            className={`flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper)] text-[var(--color-ink-muted)] shadow-sm transition-colors hover:bg-[var(--color-paper-inset)] hover:text-[var(--color-ink)] hover:cursor-pointer ${
+              !isPaid ? "opacity-60" : ""
+            }`}
+          >
+            <MicIcon />
+          </button>
+        </div>
       )}
-      <button
-        type="button"
-        onClick={handleClick}
-        disabled={status === "transcribing"}
-        aria-label={label}
-        title={label}
-        className={`flex h-9 items-center justify-center gap-2 rounded-full border font-sans text-sm font-semibold shadow-sm transition-colors hover:cursor-pointer ${
-          status === "recording"
-            ? "w-auto border-red-300 bg-red-50 px-3 text-red-600"
-            : status === "transcribing"
-              ? "w-auto border-[var(--color-border)] bg-[var(--color-paper)] px-3 text-[var(--color-ink-muted)]"
-              : "w-9 border-[var(--color-border)] bg-[var(--color-paper)] text-[var(--color-ink-muted)] hover:bg-[var(--color-paper-inset)] hover:text-[var(--color-ink)]"
-        } ${!isPaid ? "opacity-60" : ""}`}
-      >
-        {status === "recording" ? (
-          <>
-            <StopIcon />
-            <span className="flex h-3.5 items-center gap-[2.5px]" aria-hidden="true">
-              {Array.from({ length: BAR_COUNT }).map((_, i) => (
+
+      {/* HandWrought Editorial Voice Dock Overlay */}
+      {status !== "idle" && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-end pb-14 bg-[var(--color-paper)]/85 dark:bg-[#181714]/92 backdrop-blur-md animate-in fade-in duration-200">
+          {error && (
+            <p className="mb-4 rounded-full bg-red-100 border border-red-200 px-4 py-1.5 font-mono text-xs text-red-700 dark:bg-red-950/80 dark:border-red-800 dark:text-red-200 shadow-sm">
+              {error}
+            </p>
+          )}
+
+          {/* Session Timer & Recording indicator */}
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-paper-inset)] border border-[var(--color-border)] font-mono text-[11px] text-[var(--color-ink-muted)] mb-3 shadow-xs">
+            <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <span className="tabular-nums font-mono">{formatElapsed(elapsed)}</span>
+          </div>
+
+          {/* Continuous Cumulative Live Dictation (Source Serif 4 prose) */}
+          <div
+            ref={transcriptScrollRef}
+            className="max-w-3xl w-full max-h-[46vh] overflow-y-auto px-6 text-center select-none mb-8 scroll-smooth"
+          >
+            {fullDictationText ? (
+              <p className="font-serif italic text-2xl md:text-3xl lg:text-4xl leading-relaxed text-[var(--color-ink)] transition-all">
+                &ldquo;{fullDictationText}&rdquo;
+                <span className="inline-block w-2.5 h-2.5 ml-2.5 rounded-full bg-[var(--color-accent)] animate-pulse align-middle" />
+              </p>
+            ) : (
+              <p className="font-serif italic text-xl md:text-2xl text-[var(--color-ink-muted)]">
+                {status === "transcribing" ? "Cleaning up your dictation…" : "Listening… speak naturally"}
+              </p>
+            )}
+          </div>
+
+          {/* HandWrought Capsule Dock */}
+          <div className="flex items-center gap-3.5 md:gap-4.5 rounded-full border border-[var(--color-border)] bg-[var(--color-paper)] dark:bg-[var(--color-paper-inset)] px-4 py-3 shadow-[0_16px_40px_rgba(34,37,42,0.12)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.6)] backdrop-blur-2xl">
+            {/* Cancel / Discard Button */}
+            <button
+              type="button"
+              onClick={cancelRecording}
+              disabled={status === "transcribing"}
+              aria-label="Discard dictation"
+              title="Discard dictation"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper-inset)] text-[var(--color-ink-muted)] transition-colors hover:text-[var(--color-ink)] hover:bg-[var(--color-border)] hover:cursor-pointer active:scale-95 disabled:opacity-40"
+            >
+              <CloseIcon />
+            </button>
+
+            {/* Dynamic Real-time Audio Waveform (Ink themed) */}
+            <div
+              className="flex h-8 min-w-[180px] md:min-w-[240px] items-center justify-center gap-[3.5px] px-3"
+              aria-hidden="true"
+            >
+              {Array.from({ length: WAVEFORM_BAR_COUNT }).map((_, i) => (
                 <span
                   key={i}
                   ref={(el) => {
                     barRefs.current[i] = el;
                   }}
-                  className="h-full w-[2.5px] origin-center rounded-full bg-red-500"
-                  style={{ transform: "scaleY(0.25)" }}
+                  className="h-full w-[2.8px] origin-center rounded-full bg-[var(--color-ink)] transition-transform duration-75 opacity-85"
+                  style={{ transform: "scaleY(0.18)" }}
                 />
               ))}
-            </span>
-            <span className="font-mono text-[11px] tabular-nums">{formatElapsed(elapsed)}</span>
-          </>
-        ) : status === "transcribing" ? (
-          <>
-            <SpinnerIcon />
-            <span className="text-[12px]">Cleaning up…</span>
-          </>
-        ) : (
-          <MicIcon />
-        )}
-      </button>
-    </div>
+            </div>
+
+            {/* Stop Recording Button */}
+            <button
+              type="button"
+              onClick={stopRecording}
+              disabled={status === "transcribing"}
+              aria-label="Stop recording"
+              title="Stop recording"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper-inset)] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-border)] hover:cursor-pointer active:scale-95 disabled:opacity-40"
+            >
+              <StopIcon />
+            </button>
+
+            {/* Submit / Finish Button (HandWrought Signature Indigo Accent) */}
+            <button
+              type="button"
+              onClick={stopRecording}
+              disabled={status === "transcribing"}
+              aria-label="Insert dictation"
+              title="Insert dictation"
+              className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-md transition-colors hover:bg-[var(--color-accent-hover)] hover:cursor-pointer active:scale-95 disabled:opacity-70"
+            >
+              {status === "transcribing" ? <SpinnerIcon /> : <ArrowUpIcon />}
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

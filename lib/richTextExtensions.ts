@@ -2,13 +2,13 @@ import type { Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
-import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { Table } from "@tiptap/extension-table";
 import TableRow from "@tiptap/extension-table-row";
 import TableHeader from "@tiptap/extension-table-header";
 import TableCell from "@tiptap/extension-table-cell";
 import { Markdown } from "tiptap-markdown";
+import { GhostTextExtension } from "./ghostTextExtension";
 
 /**
  * tiptap-markdown doesn't augment TipTap core's `Storage` type, so
@@ -36,17 +36,11 @@ export const EDITOR_EXTENSIONS = [
     types: ["heading", "paragraph"],
     alignments: ["left", "center", "right"],
   }),
-  // Paste-your-own-draft discoverability is handled pre-click by
-  // GuidedAnnotations' third arrow instead — an in-editor placeholder can
-  // only ever confirm it after the fact, once the user has already clicked
-  // in blind.
-  // Placeholder.configure({
-  //   placeholder: "Start writing, or ask the assistant for a hand…",
-  // }),
   Image,
   Table.configure({ resizable: true }),
   TableRow,
   TableHeader,
   TableCell,
   Markdown,
+  GhostTextExtension,
 ];
