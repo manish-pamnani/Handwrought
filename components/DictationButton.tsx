@@ -94,6 +94,7 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
   const modeRef = useRef<"streaming" | "fallback">("streaming");
   const streamSessionRef = useRef<StreamSession | null>(null);
   const pendingCleanupsRef = useRef(0);
+  const finalizedCountRef = useRef(0);
   const insertPosRef = useRef(0);
 
   // Fallback MediaRecorder refs
@@ -203,6 +204,7 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
     isActiveRef.current = true;
     setError(null);
     setSessionFinalized([]);
+    finalizedCountRef.current = 0;
     setInterimText("");
     setElapsed(0);
     startedAtRef.current = Date.now();
@@ -275,7 +277,7 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
           onSentenceFinal: async (rawSentence) => {
             const ed = getEditor();
             if (!ed || !rawSentence.trim()) return;
-            const finalizedIndex = sessionFinalized.length;
+            const finalizedIndex = finalizedCountRef.current++;
 
             ed.commands.clearGhostText();
             setInterimText("");
@@ -597,7 +599,8 @@ export default function DictationButton({ user, tier, getEditor, onCreditsRemain
               disabled={status === "transcribing"}
               aria-label="Insert dictation"
               title="Insert dictation"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-accent)] text-white shadow-md transition-colors hover:bg-[var(--color-accent-hover)] hover:cursor-pointer active:scale-95 disabled:opacity-70"
+              // className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-[var(--color-accent)] hover:cursor-pointer"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--color-border)] bg-[var(--color-paper-inset)] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-border)] hover:cursor-pointer active:scale-95 disabled:opacity-40"
             >
               {status === "transcribing" ? <SpinnerIcon /> : <ArrowUpIcon />}
             </button>

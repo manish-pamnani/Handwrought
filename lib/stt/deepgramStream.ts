@@ -71,10 +71,13 @@ export async function startDeepgramStream(
   url.searchParams.set("endpointing", "350");
   url.searchParams.set("vad_events", "true");
 
+  // Nova-3 rejects the legacy `keywords` param with a 400 at handshake (which
+  // silently drops the session to the record-and-upload fallback) — it takes
+  // `keyterm` instead, with no `:boost` suffix.
   if (options?.keywords && options.keywords.length > 0) {
     for (const kw of options.keywords) {
       if (kw.trim()) {
-        url.searchParams.append("keywords", `${kw.trim()}:2`);
+        url.searchParams.append("keyterm", kw.trim());
       }
     }
   }
