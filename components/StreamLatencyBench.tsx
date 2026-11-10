@@ -1,28 +1,37 @@
 "use client";
 
 // Public page (/landing): the naive way to stream model output into an
-// editor, with live keystroke-latency measurement. The comparison is the real
-// app at `/`, which never streams tokens into React state: the model's reply
-// arrives whole and lands in the editor once, while typing stays editable.
+// editor, with live keystroke-latency measurement. Laid out like the real
+// editor at `/`, which never streams tokens into React state: there, the
+// model's reply arrives whole and lands in the editor once.
 //
 // Self-contained on purpose: its own editor and state, no auth, no API calls,
 // no credits, nothing persisted. It never touches a user's real document.
 //
-//   naive:    every token is appended to page-level React state. The sync
-//             effect then replaces the whole editor document via setContent
-//             (same pattern as DocumentPanel's external-sync effect), ~50x/sec.
-//             While you type, your keystrokes and the stream race: keystrokes
-//             get overwritten and land out of order. That's the real failure.
+// Keyboard only (no visible controls):
+//   Ctrl+Shift+1  start the stream (30s, or until stopped)
+//   Ctrl+Shift+X  stop
+//   Ctrl+Shift+L  reset to the long document
+//   Ctrl+Shift+S  show / hide the latency readout
+//
+// Naive stream: every token is appended to page-level React state, and the
+// sync effect replaces the whole editor document via setContent (same
+// pattern as DocumentPanel's external-sync effect), ~50x/sec. While you type,
+// keystrokes and the stream race: keystrokes get overwritten and land out of
+// order. That's the real failure.
 //
 // Latency per keystroke = OS event timestamp -> frame after it was handled
 // (rAF -> setTimeout, the standard "next paint" approximation), so time spent
 // queued behind a busy main thread counts. Long tasks via PerformanceObserver.
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { EditorContent, useEditor } from "@tiptap/react";
 import { TextSelection } from "@tiptap/pm/state";
 import { EDITOR_EXTENSIONS, getMarkdown } from "@/lib/richTextExtensions";
+import { countWords } from "@/lib/wordCount";
+import FormattingToolbar from "@/components/FormattingToolbar";
 
 const TOKEN_INTERVAL_MS = 20; // ~50 tokens/sec, roughly a real model's stream rate
 const RUN_MS = 30_000;
@@ -91,27 +100,6 @@ function computeStats(run: Run): Stats {
   };
 }
 
-function StatsLine({ label, stats, live }: { label: string; stats: Stats | null; live: boolean }) {
-  return (
-    <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[12px] text-[var(--color-ink-muted)]">
-      <span className={`w-[72px] ${live ? "text-[var(--color-accent)]" : "text-[var(--color-ink)]"}`}>{label}</span>
-      {stats ? (
-        <>
-          <span>{stats.keys} keys</span>
-          <span>median {stats.median} ms</span>
-          <span>p95 {stats.p95} ms</span>
-          <span>max {stats.max} ms</span>
-          <span>{stats.over100} over 100 ms</span>
-          <span>blocked {stats.blockedMs} ms</span>
-          <span>{stats.elapsedS}s</span>
-        </>
-      ) : (
-        <span>not run</span>
-      )}
-    </div>
-  );
-}
-
 export default function StreamLatencyBench() {
   // The naive path's "owner" of the document: page-level React state.
   const [documentText, setDocumentText] = useState(buildLongDocument);
@@ -119,6 +107,8 @@ export default function StreamLatencyBench() {
 
   const [running, setRunning] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [showStats, setShowStats] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
   const runRef = useRef<Run | null>(null);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const editorDomRef = useRef<HTMLDivElement>(null);
@@ -149,64 +139,79 @@ export default function StreamLatencyBench() {
     );
   }, [documentText, editor]);
 
-  function clearTimers() {
-    for (const t of timersRef.current) {
-      clearInterval(t);
-      clearTimeout(t);
-    }
-    timersRef.current = [];
-  }
-
-  function stop() {
-    clearTimers();
-    const run = runRef.current;
-    runRef.current = null;
-    setRunning(false);
-    if (!run) return;
-    // Let in-flight keystroke measurements land before the final numbers.
-    setTimeout(() => setStats(computeStats(run)), 300);
-  }
-
-  function begin() {
-    if (runRef.current) stop();
-    const run: Run = { startedAt: performance.now(), keyLatencies: [], longTaskMs: 0 };
-    runRef.current = run;
-    setRunning(true);
-    setStats(computeStats(run));
-    timersRef.current.push(setTimeout(stop, RUN_MS));
-    // Live readout, once a second.
-    timersRef.current.push(
-      setInterval(() => {
-        if (runRef.current === run) setStats(computeStats(run));
-      }, 1000)
-    );
-    editor?.commands.focus();
-  }
-
-  function runNaive() {
-    begin();
-    let i = 0;
-    setDocumentText((prev) => prev + "\n\n");
-    timersRef.current.push(
-      setInterval(() => {
-        const token = TOKENS[i % TOKENS.length];
-        const paragraphBreak = i > 0 && i % TOKENS.length === 0 ? "\n\n" : "";
-        i++;
-        // Every token through page-level document state.
-        setDocumentText((prev) => prev + paragraphBreak + token);
-      }, TOKEN_INTERVAL_MS)
-    );
-  }
-
-  function reset() {
-    stop();
-    setDocumentText(buildLongDocument());
-    setStats(null);
-  }
-
-  // Keystroke latency (editor keystrokes only) + long tasks.
+  // Latest editor for the once-registered keyboard listener.
+  const editorRef = useRef(editor);
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
+    editorRef.current = editor;
+  });
+
+  useEffect(() => {
+    function clearTimers() {
+      for (const t of timersRef.current) {
+        clearInterval(t);
+        clearTimeout(t);
+      }
+      timersRef.current = [];
+    }
+
+    function stop() {
+      clearTimers();
+      const run = runRef.current;
+      runRef.current = null;
+      setRunning(false);
+      if (!run) return;
+      // Let in-flight keystroke measurements land before the final numbers.
+      setTimeout(() => setStats(computeStats(run)), 300);
+    }
+
+    function start() {
+      if (runRef.current) stop();
+      const run: Run = { startedAt: performance.now(), keyLatencies: [], longTaskMs: 0 };
+      runRef.current = run;
+      setRunning(true);
+      setStats(computeStats(run));
+      timersRef.current.push(setTimeout(stop, RUN_MS));
+      timersRef.current.push(
+        setInterval(() => {
+          if (runRef.current === run) setStats(computeStats(run));
+        }, 1000)
+      );
+      let i = 0;
+      setDocumentText((prev) => prev + "\n\n");
+      timersRef.current.push(
+        setInterval(() => {
+          const token = TOKENS[i % TOKENS.length];
+          const paragraphBreak = i > 0 && i % TOKENS.length === 0 ? "\n\n" : "";
+          i++;
+          // Every token through page-level document state.
+          setDocumentText((prev) => prev + paragraphBreak + token);
+        }, TOKEN_INTERVAL_MS)
+      );
+      editorRef.current?.commands.focus();
+    }
+
+    function reset() {
+      stop();
+      setDocumentText(buildLongDocument());
+      setStats(null);
+    }
+
+    function onShortcut(e: KeyboardEvent) {
+      if (!e.ctrlKey || !e.shiftKey || e.metaKey || e.altKey) return;
+      const actions: Record<string, () => void> = {
+        Digit1: start,
+        KeyX: stop,
+        KeyL: reset,
+        KeyS: () => setShowStats((v) => !v),
+      };
+      const action = actions[e.code];
+      if (!action) return;
+      e.preventDefault();
+      e.stopPropagation();
+      action();
+    }
+
+    function onKeyMeasure(e: KeyboardEvent) {
       const run = runRef.current;
       if (!run || e.ctrlKey || e.metaKey || e.altKey) return;
       if (!editorDomRef.current?.contains(e.target as Node)) return;
@@ -218,6 +223,7 @@ export default function StreamLatencyBench() {
         }, 0)
       );
     }
+
     let observer: PerformanceObserver | null = null;
     try {
       observer = new PerformanceObserver((list) => {
@@ -229,54 +235,116 @@ export default function StreamLatencyBench() {
     } catch {
       // longtask unsupported outside Chromium; keystroke latency still works
     }
-    window.addEventListener("keydown", onKey, true);
+
+    window.addEventListener("keydown", onShortcut, true);
+    window.addEventListener("keydown", onKeyMeasure, true);
     return () => {
-      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keydown", onShortcut, true);
+      window.removeEventListener("keydown", onKeyMeasure, true);
       observer?.disconnect();
       clearTimers();
     };
   }, []);
 
-  const btn =
-    "rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-[13px] text-[var(--color-ink)] transition-colors hover:bg-[var(--color-paper-inset)] disabled:opacity-40";
+  const wordCount = countWords(documentText);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(documentText);
+      setCopyState("copied");
+      setTimeout(() => setCopyState("idle"), 1500);
+    } catch {
+      // clipboard access denied
+    }
+  }
+
+  function handleExport() {
+    if (!documentText.trim()) return;
+    const blob = new Blob([documentText], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "draft.md";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-paper)] px-4 py-3 sm:px-8">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Link href="/" className="mr-2 font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)]">
-              HandWrought
-            </Link>
-            <button className={btn} onClick={runNaive} disabled={running}>
-              Start stream
-            </button>
-            <button className={btn} onClick={stop} disabled={!running}>
-              Stop
-            </button>
-            <button className={btn} onClick={reset} disabled={running}>
-              Reset
-            </button>
-          </div>
-          <div className="flex flex-col gap-1">
-            <StatsLine label="typing" stats={stats} live={running} />
-          </div>
+    <div className="flex h-screen flex-col overflow-hidden">
+      <header className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] bg-[var(--color-paper)] px-5 py-3">
+        <Link href="/" className="flex shrink-0 items-center gap-2.5">
+          <Image src="/handwrought-icon.svg" alt="" width={26} height={26} priority />
+          <span className="hidden font-sans text-[15px] font-semibold tracking-tight text-[var(--color-ink)] sm:inline">
+            HandWrought
+          </span>
+        </Link>
+        <div className="flex shrink-0 items-center gap-4">
+          <span className="hidden font-mono text-xs tracking-wide text-[var(--color-ink-muted)] sm:inline">
+            {wordCount} {wordCount === 1 ? "word" : "words"} · {documentText.length}{" "}
+            {documentText.length === 1 ? "character" : "characters"}
+          </span>
+          <button
+            onClick={handleCopy}
+            className="rounded-md border border-[var(--color-border)] px-3 py-1.5 font-sans text-xs font-medium text-[var(--color-ink)] transition-colors hover:cursor-pointer hover:bg-[var(--color-paper-inset)]"
+          >
+            {copyState === "copied" ? "Copied" : "Copy"}
+          </button>
+          <button
+            onClick={handleExport}
+            disabled={!documentText.trim()}
+            className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 font-sans text-xs font-medium text-white transition-colors hover:cursor-pointer hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Export
+          </button>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8 sm:px-8">
-        <div ref={editorDomRef} className="prose-doc font-serif text-[19px] leading-[1.9] text-[var(--color-ink)]">
-          <EditorContent editor={editor} />
+      <main className="min-h-0 flex-1">
+        <div className="flex h-full flex-col bg-[var(--color-paper)]">
+          <div className="flex items-center justify-between gap-4 px-10 pt-6 sm:px-16">
+            <span className="font-mono text-[11px] tracking-widest text-[var(--color-ink-muted)]">DRAFT.MD</span>
+            {showStats && (
+              <span
+                className={`flex flex-wrap justify-end gap-x-3 font-mono text-[11px] tracking-wide ${
+                  running ? "text-[var(--color-accent)]" : "text-[var(--color-ink-muted)]"
+                }`}
+              >
+                {stats ? (
+                  <>
+                    <span>{stats.keys} keys</span>
+                    <span>median {stats.median} ms</span>
+                    <span>p95 {stats.p95} ms</span>
+                    <span>max {stats.max} ms</span>
+                    <span>{stats.over100} over 100 ms</span>
+                    <span>blocked {stats.blockedMs} ms</span>
+                    <span>{stats.elapsedS}s</span>
+                  </>
+                ) : (
+                  <span>latency: no run yet</span>
+                )}
+              </span>
+            )}
+          </div>
+
+          <div className="border-b border-[var(--color-border)] px-10 sm:px-16">
+            <FormattingToolbar editor={editor} />
+          </div>
+
+          <div className="relative flex-1 overflow-y-auto px-10 pb-10 sm:px-16">
+            <div ref={editorDomRef} className="prose-doc font-serif text-[19px] leading-[1.9] text-[var(--color-ink)]">
+              <EditorContent editor={editor} />
+            </div>
+          </div>
         </div>
       </main>
 
-      <footer className="border-t border-[var(--color-border)] px-4 py-4 text-center font-sans text-[12px] text-[var(--color-ink-muted)] sm:px-8">
-        This page streams every token straight into the document, 30 seconds per run. HandWrought&apos;s{" "}
-        <Link href="/" className="underline">
-          editor
-        </Link>{" "}
-        doesn&apos;t work this way.
-      </footer>
+      <nav className="fixed bottom-2 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 font-sans text-[11px] text-[var(--color-ink-muted)] opacity-60 transition-opacity hover:opacity-100">
+        <span>Nothing on this page is saved</span>
+        <span aria-hidden>·</span>
+        <Link href="/" className="hover:text-[var(--color-ink)]">
+          Open the editor
+        </Link>
+      </nav>
     </div>
   );
 }
