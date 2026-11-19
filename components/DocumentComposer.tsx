@@ -13,7 +13,6 @@ type DocumentComposerProps = {
   onTopicChange: (value: string) => void;
   onSubmit: () => void;
   disabled: boolean;
-  error: string | null;
 };
 
 // Position/size glide — the "flies from center to header" part.
@@ -50,7 +49,6 @@ export default function DocumentComposer({
   onTopicChange,
   onSubmit,
   disabled,
-  error,
 }: DocumentComposerProps) {
   const [rect, setRect] = useState<Rect | null>(null);
   const [focused, setFocused] = useState(false);
@@ -155,10 +153,6 @@ export default function DocumentComposer({
           {docked ? "Write for me →" : "Write it for me →"}
         </button>
       </form>
-
-      {error && (
-        <p className="absolute top-full mt-1 whitespace-nowrap font-mono text-[10px] text-red-600">{error}</p>
-      )}
     </div>
   );
 }

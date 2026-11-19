@@ -80,7 +80,11 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
   const [importOpen, setImportOpen] = useState(false);
   const [apiKey, setApiKeyState] = useState<string | null>(null);
   const [welcomeTopic, setWelcomeTopic] = useState("");
-  const [composerError, setComposerError] = useState<string | null>(null);
+  // Status for the edit flows (SelectionToolbar quick actions and the docked
+  // composer). The one-shot article draft has its own outlineStatus line;
+  // these used to give no feedback beyond disabled controls, and a failed
+  // quick action only appended to `messages`, which nothing renders.
+  const [editError, setEditError] = useState<string | null>(null);
   const documentPanelRef = useRef<DocumentPanelHandle>(null);
   const toolbarRowRef = useRef<HTMLDivElement>(null);
   const creditsRef = useRef<HTMLSpanElement>(null);
@@ -164,6 +168,9 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
       return false;
     }
 
+    const isEdit = !opts?.autoAccept;
+    if (isEdit) setEditError(null);
+
     const userMessage: ChatMessage = { id: makeId(), role: "user", content: text };
     const nextMessages = [...messages, userMessage];
     setMessages(nextMessages);
@@ -215,6 +222,7 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
         }
         const msg = data && "error" in data ? data.error : "Sorry — I couldn't reach the writing assistant. Please try again.";
         setMessages((m) => [...m, { id: makeId(), role: "assistant", content: msg, isError: true }]);
+        if (isEdit) setEditError(msg);
         return false;
       }
 
@@ -286,6 +294,7 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
           isError: true,
         },
       ]);
+      if (isEdit) setEditError("Sorry — I couldn't reach the writing assistant. Please try again.");
       return false;
     } finally {
       setIsThinking(false);
@@ -318,7 +327,6 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
 
   function handleTopicChange(value: string) {
     setWelcomeTopic(value);
-    if (composerError) setComposerError(null);
   }
 
   // Before onboarding finishes, submitting the composer behaves exactly like
@@ -359,13 +367,10 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
     }
 
     if (isThinking || pendingSuggestion) return;
-    setComposerError(null);
+    // Failures surface in DocumentPanel's edit status line (editError); the
+    // typed instruction is kept so the user can just resubmit.
     const ok = await handleSend(value, { wholeDocument: true });
-    if (ok) {
-      setWelcomeTopic("");
-    } else {
-      setComposerError("Something went wrong — try again.");
-    }
+    if (ok) setWelcomeTopic("");
   }
 
   // Landing-page example chips (WelcomeOverlay) — only meaningful before
@@ -452,6 +457,9 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
           isThinking={isThinking}
           onOutlineEnter={handleOutlineEnter}
           outlineStatus={outlineStatus}
+          editWorking={isThinking && outlineStatus !== "drafting"}
+          editError={editError}
+          onDismissEditError={() => setEditError(null)}
           showWelcome={!hasStartedWriting}
           onEditorFocus={() => setHasStartedWriting(true)}
           toolbarRowRef={toolbarRowRef}
@@ -474,7 +482,6 @@ function Home({ onOpenHelp }: { onOpenHelp: () => void }) {
         onTopicChange={handleTopicChange}
         onSubmit={handleComposerSubmit}
         disabled={isThinking || !!pendingSuggestion}
-        error={composerError}
       />
 
       <GuidedAnnotations
