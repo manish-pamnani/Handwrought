@@ -54,6 +54,11 @@ type DocumentPanelProps = {
   onEditorFocus?: () => void;
   /** drives the brief "drafting an outline…" status line for the Enter-to-outline flow */
   outlineStatus?: "idle" | "drafting" | "error";
+  /** a quick action or composer edit is in flight (not the one-shot article draft, which uses outlineStatus) */
+  editWorking?: boolean;
+  /** the last quick action / composer edit failed with this message */
+  editError?: string | null;
+  onDismissEditError?: () => void;
   /** lets GuidedAnnotations measure the real toolbar row to point its arrow at */
   toolbarRowRef?: RefObject<HTMLDivElement | null>;
   /** for the welcome card's "N free outlines left" line */
@@ -103,6 +108,9 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
     onEditorFocus,
     toolbarRowRef,
     outlineStatus = "idle",
+    editWorking = false,
+    editError = null,
+    onDismissEditError,
     creditsRemaining,
     tier,
     centerSlotRef,
@@ -305,6 +313,29 @@ const DocumentPanel = forwardRef<DocumentPanelHandle, DocumentPanelProps>(functi
               </span>
             ) : (
               <span className="text-red-600">Couldn&apos;t write that draft — try again.</span>
+            )}
+          </div>
+        )}
+
+        {(editWorking || editError) && (
+          <div role="status" aria-live="polite" className="mb-3 flex items-center gap-2 font-mono text-xs">
+            {editWorking ? (
+              <span className="flex items-center gap-2 text-[var(--color-accent)]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-accent)]" />
+                working on your edit…
+              </span>
+            ) : (
+              <span className="flex items-center gap-2 text-red-600">
+                <span>{editError}</span>
+                <button
+                  type="button"
+                  onClick={onDismissEditError}
+                  aria-label="Dismiss error"
+                  className="font-sans text-[var(--color-ink-muted)] transition-colors hover:cursor-pointer hover:text-[var(--color-ink)]"
+                >
+                  ×
+                </button>
+              </span>
             )}
           </div>
         )}
